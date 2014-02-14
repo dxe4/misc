@@ -1,4 +1,5 @@
 #lang racket
+(require rackunit)
 (zero? 1);check if on is zero -> #f
 (symbol=? 'foo 'FoO); check if two symbols are the same
 (expt 2 3); 2^3
@@ -73,3 +74,72 @@ ex2
 (cond [(= x 7) 5]
       [(odd? x) 'odd-number]
       [else 'even-number])
+
+;;
+(define (my-length a-list)
+  (if (empty? a-list)
+      0
+      (add1 (my-length (rest a-list)))))
+;;
+
+(my-length `(1 2 3))
+;;
+(and (odd? 5) (odd? 7) (odd? 9))
+;;mutation
+(define _even #f)
+_even
+(or (odd? 4) (set! _even #t))
+_even
+;;
+   ;(when (and file-modified (ask-user-about-saving))
+   ;  (save-file))
+;;unless
+  ;(define filename "my-first-program.rkt")
+  ;(unless (ask-user-whether-to-keep-file filename)
+  ;  (delete-file filename))
+;;
+(if (member 4 (list 3 4 1 5)) '4-is-in 'not-in)
+(member 1 '(3 4 1 5));'(1 5)
+
+(struct point (x y) #:transparent); if transparent not included #point will be printed instead of point 0 0
+(point 2 2)
+
+(define (distance-to-origin p)
+  (sqrt (+ (sqr (point-x p)) (sqr (point-y p)))))
+
+(distance-to-origin (point 3 4))
+
+;;
+(define (eq-first-items list1 list2)
+  (eq? (first list1) (first list2)))
+(eq-first-items (cons 1 empty) (cons 2 empty))
+(eq-first-items (cons 3 empty) (cons 3 empty))
+
+(check-equal? (add1 5) 6)
+;
+
+(define WIDTH 100)
+(define HEIGHT 200)
+
+(define X-CENTER (quotient WIDTH 2))
+(define Y-CENTER (quotient HEIGHT 2))
+
+Y-CENTER; 100
+
+(unless (> HEIGHT 0)
+  (error 'guess-my-number "HEIGHT may not be negative"))
+
+;
+
+(struct posn (x y))
+(struct rectangle (width height))
+(define (inside-of-rectangle? r p)
+  (define x (posn-x p))
+  (define y (posn-y p))
+  (define width (rectangle-width r))
+  (define height (rectangle-height r))
+  (and (<= 0 x) (< x width) (<= 0 y) (< y height)))
+
+
+(inside-of-rectangle? (rectangle 100 100) (posn 10 10))
+(inside-of-rectangle? (rectangle 100 100) (posn 10 200))

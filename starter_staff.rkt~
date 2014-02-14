@@ -1,0 +1,4 @@
+#lang racket
+(zero? 1);check if on is zero -> #f
+(symbol=? 'foo 'FoO); check if two symbols are the same
+(expt 2 3); 2^3

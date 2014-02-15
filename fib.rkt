@@ -1,20 +1,13 @@
 #lang racket
-(define lower 1)
-(define upper 100)
-(define (guess)
-  (quotient (+ lower upper) 2))
-
-(define (smaller)
-  (set! upper (max lower (sub1 (guess))))
-  (guess))
-
-(define (bigger)
-  (set! lower (min upper (add1 (guess))))
-  (guess))
-
-(define (start n m)
-  (set! lower (min n m))
-  (set! upper (max n m))
-  (guess))
-
-(start 1 30)
+(define args (current-command-line-arguments))
+(define (fib n)
+  (define (fib-iter a b count)
+    (if (= count 0)
+        b
+        (fib-iter (+ a b) a (- count 1))))
+  (fib-iter 1 0 n))
+(for ([i args])
+  (display  
+   (string-append  
+    "\n" i " -> " (number->string (fib (string->number i)))))
+  )

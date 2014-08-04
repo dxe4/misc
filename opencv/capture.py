@@ -2,12 +2,31 @@ import cv2
 import time
 
 
+def process_image(vide):
+    raise NotImplemented
+
+
+def read_video(fname):
+    cap = cv2.VideoCapture(fname)
+
+    while(cap.isOpened()):
+        ret, frame = cap.read()
+
+        cv2.imshow('frame', frame)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+
 def capture_for(seconds):
     started = time.time()
     fname = str(started).split('.')[0]
 
     capture = cv2.VideoCapture(0)
     fourcc = cv2.cv.CV_FOURCC(*'XVID')
+    # TODO 10 seconds lead to 6 seconds video :S
     video_writer = cv2.VideoWriter("out_{}.avi".format(fname),
                                    fourcc, seconds, (600, 600))
 
@@ -36,3 +55,4 @@ def capture_for(seconds):
 if __name__ == "__main__":
     duration = 10
     capture_for(duration)
+    # 'out_1407111267.avi'

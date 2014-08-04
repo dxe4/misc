@@ -19,7 +19,7 @@ def capture_for(seconds):
         ret, frame = capture.read()
 
         if ret is True:
-            frame = cv2.flip(frame, 0)
+            # frame = cv2.flip(frame, 0)
             # write the flipped frame
             video_writer.write(frame)
 

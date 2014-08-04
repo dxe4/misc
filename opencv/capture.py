@@ -9,7 +9,7 @@ def capture_for(seconds):
     capture = cv2.VideoCapture(0)
     fourcc = cv2.cv.CV_FOURCC(*'XVID')
     video_writer = cv2.VideoWriter("out_{}.avi".format(fname),
-                                   fourcc, 25, (600, 600))
+                                   fourcc, seconds, (600, 600))
 
     # record video
     while(capture.isOpened()):

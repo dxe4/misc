@@ -54,5 +54,5 @@ def capture_for(seconds):
 
 if __name__ == "__main__":
     duration = 10
-    capture_for(duration)
-    # 'out_1407111267.avi'
+    # capture_for(duration)
+    read_video('out_1407145237.avi')

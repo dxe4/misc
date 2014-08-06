@@ -12,41 +12,40 @@ face_cascade = cv2.CascadeClassifier(face_xml)
 eye_cascade = cv2.CascadeClassifier(eye_xml)
 
 
-def get_frame(fname, num):
+def load_video(fname):
     cap = cv2.VideoCapture(fname)
     ret, frame = cap.read()
-    i = 0
+
     while(cap.isOpened()):
         ret, frame = cap.read()
 
         if not ret:
-            raise IndexError('Max: {}'.format(i))
+            break
 
-        if i == num:
-            return frame
+        process_image(frame)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
-        i += 1
+
+def process_image(frame):
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    faces = face_cascade.detectMultiScale(gray)
+    for (x, y, w, h) in faces:
+        new_frame = cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
+        frame = new_frame or frame
+
+        roi_gray = gray[y:y + h, x:x + w]
+        roi_color = frame[y:y + h, x:x + w]
+
+        eyes = eye_cascade.detectMultiScale(roi_gray)
+        for (ex, ey, ew, eh) in eyes:
+            cv2.rectangle(
+                roi_color, (ex, ey), (ex + ew, ey + eh), (0, 255, 0), 2)
+
+    cv2.imshow('img', frame)
 
 
-fname = 'out_4.avi'
-frame = get_frame(fname, 120)
+frame = load_video('out_5.avi')
 # frame = cv2.imread('fac2.jpg')
-gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-
-faces = face_cascade.detectMultiScale(gray)
-for (x, y, w, h) in faces:
-    # FIXME
-    # frame = cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
-
-    roi_gray = gray[y:y + h, x:x + w]
-    roi_color = frame[y:y + h, x:x + w]
-
-    eyes = eye_cascade.detectMultiScale(roi_gray)
-    print(eyes)
-    for (ex, ey, ew, eh) in eyes:
-        cv2.rectangle(roi_color, (ex, ey), (ex + ew, ey + eh), (0, 255, 0), 2)
-
-cv2.imshow('img', frame)
-cv2.waitKey(0)
+# cv2.waitKey(0)
 cv2.destroyAllWindows()

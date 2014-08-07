@@ -12,8 +12,31 @@ face_cascade = cv2.CascadeClassifier(face_xml)
 eye_cascade = cv2.CascadeClassifier(eye_xml)
 
 
-def frame_generator(input_file=None):
-    cap = cv2.VideoCapture(input_file or 0)
+class VideoOutputConfig(object):
+
+    def __init__(self, file_name, size_x, size_y, video_format='XVID'):
+        self.file_name = file_name
+        self.size_x = size_x
+        self.size_y = size_y
+        self.video_format = video_format
+        self.size_tuple = (self.size_x, self.size_y)
+
+    def make_writer(self):
+        fourcc = cv2.cv.CV_FOURCC(*self.video_format)
+        video_writer = cv2.VideoWriter(self.file_name,
+                                       fourcc, 10, self.size_tuple)
+        return video_writer
+
+
+def frame_generator(input_file=0):
+    '''
+    Yields all frames from the video.
+    input_file: default=0 ( 0 -> capture from camera)
+    If you press q the generator will stop
+    TODO: allow passing key listeners
+    '''
+    cap = cv2.VideoCapture(input_file)
+
     while(cap.isOpened()):
         ret, frame = cap.read()
 
@@ -28,11 +51,9 @@ def frame_generator(input_file=None):
     cap.release()
 
 
-def process_video(input_file=None, output_file=None):
+def process_video(input_file=None, video_config=None):
+    video_writer = video_config.make_writer()
 
-    fourcc = cv2.cv.CV_FOURCC(*'XVID')
-    video_writer = cv2.VideoWriter(output_file,
-                                   fourcc, 10, (600, 600))
     for frame in frame_generator(input_file=input_file):
         process_image(frame, video_writer)
 
@@ -57,7 +78,9 @@ def process_image(frame, video_writer):
     cv2.imshow('frame', frame)
 
 
-process_video(input_file='out_5.avi', output_file='out_processed.avi')
+default_video_config = VideoOutputConfig('out_processed.avi',
+                                         600, 600)
+process_video(input_file='out_5.avi', video_config=default_video_config)
 # frame = cv2.imread('fac2.jpg')
 # cv2.waitKey(0)
 cv2.destroyAllWindows()

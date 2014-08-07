@@ -2,14 +2,69 @@ import os
 import cv2
 
 
-face_xml = os.path.expanduser(
-    '~/dev/opencv/data/haarcascades/haarcascade_frontalface_default.xml')
-eye_xml = os.path.expanduser(
-    '~/dev/opencv/data/haarcascades/haarcascade_eye.xml')
+settings = {
+    # TODO this needs refactoring
+    'FACE_CASCADE': os.path.expanduser(
+        '~/dev/opencv/data/haarcascades/haarcascade_frontalface_default.xml'),
+    'FACE_BOX_BGR': (255, 0, 0),
+    'FACE_BOX_THICKNESS': 2,
+
+    'EYE_CASCADE': os.path.expanduser(
+        '~/dev/opencv/data/haarcascades/haarcascade_eye.xml'),
+    'EYE_BOX_BGR': (0, 255, 0),
+    'EYE_BOX_THICKNESS': 2,
+}
 
 
-face_cascade = cv2.CascadeClassifier(face_xml)
-eye_cascade = cv2.CascadeClassifier(eye_xml)
+class CascadeClassifierMixIn(object):
+
+    def __init__(self, rectangle_tuple, frame, gray):
+        x, y, w, h = rectangle_tuple
+        self.x = x
+        self.y = y
+        self.w = w
+        self.h = h
+        self.frame = frame
+        self.gray = gray
+        self.drawn_frame = None
+
+    @classmethod
+    def find(cls, frame, gray=None):
+        if gray is None:
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        objects = [cls(i, frame, gray)
+                   for i in cls.classifier.detectMultiScale(gray)]
+
+        return objects
+
+    def draw(self):
+        self.drawn_frame = cv2.rectangle(self.frame,
+                                         (self.x, self.y),
+                                         (self.x + self.w, self.y + self.h),
+                                         self.color, self.thickness)
+
+
+class Face(CascadeClassifierMixIn):
+    default_file = settings['FACE_CASCADE']
+    classifier = cv2.CascadeClassifier(default_file)
+    color = settings['FACE_BOX_BGR']
+    thickness = settings['FACE_BOX_THICKNESS']
+
+    def find_eyes(self):
+        frame = self.drawn_frame or self.frame
+        roi_gray = self.gray[self.y:self.y + self.h, self.x:self.x + self.w]
+        roi_color = frame[self.y:self.y + self.h, self.x:self.x + self.w]
+
+        eyes = Eye.find(roi_color, roi_gray)
+        self.eyes = eyes
+        return eyes
+
+
+class Eye(CascadeClassifierMixIn):
+    default_file = settings['EYE_CASCADE']
+    classifier = cv2.CascadeClassifier(default_file)
+    color = settings['EYE_BOX_BGR']
+    thickness = settings['EYE_BOX_THICKNESS']
 
 
 class VideoOutputConfig(object):
@@ -52,36 +107,31 @@ def frame_generator(input_file=0):
 
 
 def process_video(input_file=None, video_config=None):
-    video_writer = video_config.make_writer()
+    video_writer = video_config.make_writer() if video_config else None
 
     for frame in frame_generator(input_file=input_file):
-        process_image(frame, video_writer)
+        process_image(frame)
+        post_process_image(frame, video_writer=video_writer)
 
 
-def process_image(frame, video_writer):
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    faces = face_cascade.detectMultiScale(gray)
-    for (x, y, w, h) in faces:
-        new_frame = cv2.rectangle(
-            frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
-        frame = new_frame or frame
+def post_process_image(frame, video_writer=None):
+    if video_writer:
+        video_writer.write(frame)
 
-        roi_gray = gray[y:y + h, x:x + w]
-        roi_color = frame[y:y + h, x:x + w]
-
-        eyes = eye_cascade.detectMultiScale(roi_gray)
-        for (ex, ey, ew, eh) in eyes:
-            cv2.rectangle(
-                roi_color, (ex, ey), (ex + ew, ey + eh), (0, 255, 0), 2)
-
-    video_writer.write(frame)
     cv2.imshow('frame', frame)
 
 
-default_video_config = VideoOutputConfig('out_processed.avi',
-                                         600, 600)
+def process_image(frame):
+    faces = Face.find(frame)
+
+    for face in faces:
+        face.draw()
+        eyes = face.find_eyes()
+        for i in eyes:
+            i.draw()
+    return faces
+
+
+default_video_config = VideoOutputConfig('out_processed.avi', 600, 600)
 process_video(input_file='out_5.avi', video_config=default_video_config)
-# frame = cv2.imread('fac2.jpg')
-# cv2.waitKey(0)
 cv2.destroyAllWindows()
-# process_image(frame, video_writer)

@@ -32,10 +32,9 @@ class CascadeClassifierMixIn(object):
     def find(cls, frame, gray=None):
         if gray is None:
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        objects = [cls(i, frame, gray)
-                   for i in cls.classifier.detectMultiScale(gray)]
 
-        return objects
+        return [cls(i, frame, gray)
+                for i in cls.classifier.detectMultiScale(gray)]
 
     def draw(self):
         self.drawn_frame = cv2.rectangle(self.frame,
@@ -129,6 +128,7 @@ def process_image(frame):
         eyes = face.find_eyes()
         for i in eyes:
             i.draw()
+
     return faces
 
 

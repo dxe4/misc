@@ -34,6 +34,21 @@ def fix_eye():
     pass
 
 
+def eye_ellipse_detection():
+    # Ellipse:
+    # (x/a)**2 + (y/b)**2 == 1
+    # y = +- sqrt((a**2 * b**2 - b**2 * x**2) / a**2)
+    """
+    max_white =  (0, 0, 0)
+    min_white =  (30, 30, 30) where sum(min_white) <= 30
+    a) find ellipse in range (max_white - min_white)
+    b) find circle on a black & white inversed image
+    c) pick a,b from circle
+    d) draw oval
+    """
+    pass
+
+
 def fix_face():
     '''
     If a face.eyes == 0 or face.eyes > 2 face.error = true
@@ -90,6 +105,12 @@ class Eye(CascadeClassifierMixIn):
     classifier = cv2.CascadeClassifier(default_file)
     color = settings['EYE_BOX_BGR']
     thickness = settings['EYE_BOX_THICKNESS']
+
+
+class Video(object):
+
+    def __init__(self):
+        pass
 
 
 class VideoOutputConfig(object):

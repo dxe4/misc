@@ -1,19 +1,5 @@
-import os
 import cv2
-
-
-settings = {
-    # TODO this needs refactoring
-    'FACE_CASCADE': os.path.expanduser(
-        '~/dev/opencv/data/haarcascades/haarcascade_frontalface_default.xml'),
-    'FACE_BOX_BGR': (255, 0, 0),
-    'FACE_BOX_THICKNESS': 2,
-
-    'EYE_CASCADE': os.path.expanduser(
-        '~/dev/opencv/data/haarcascades/haarcascade_eye.xml'),
-    'EYE_BOX_BGR': (0, 255, 0),
-    'EYE_BOX_THICKNESS': 2,
-}
+from py_opencv import settings
 
 
 def fix_eye():
@@ -85,10 +71,10 @@ class CascadeClassifierMixIn(object):
 
 
 class Face(CascadeClassifierMixIn):
-    default_file = settings['FACE_CASCADE']
+    default_file = settings.FACE_CASCADE
     classifier = cv2.CascadeClassifier(default_file)
-    color = settings['FACE_BOX_BGR']
-    thickness = settings['FACE_BOX_THICKNESS']
+    color = settings.FACE_BOX_BGR
+    thickness = settings.FACE_BOX_THICKNESS
 
     def find_eyes(self):
         frame = self.drawn_frame or self.frame
@@ -101,10 +87,10 @@ class Face(CascadeClassifierMixIn):
 
 
 class Eye(CascadeClassifierMixIn):
-    default_file = settings['EYE_CASCADE']
+    default_file = settings.EYE_CASCADE
     classifier = cv2.CascadeClassifier(default_file)
-    color = settings['EYE_BOX_BGR']
-    thickness = settings['EYE_BOX_THICKNESS']
+    color = settings.EYE_BOX_BGR
+    thickness = settings.EYE_BOX_THICKNESS
 
 
 class Video(object):
@@ -179,6 +165,6 @@ def process_image(frame):
     return faces
 
 
-default_video_config = VideoOutputConfig('out_processed.avi', 600, 600)
-process_video(input_file='out_5.avi', video_config=default_video_config)
+default_video_config = VideoOutputConfig('videos/out_processed.avi', 600, 600)
+process_video(input_file='videos/out_5.avi', video_config=default_video_config)
 cv2.destroyAllWindows()

@@ -16,6 +16,32 @@ settings = {
 }
 
 
+def fix_eye():
+    '''
+    If we have 3 eyes something went wrong.
+    If previous frames available:
+      -> find eyes in previous frames
+      -> If the previous frames have no eyes or have 3 eyes mark face as
+         'error' (can draw red)
+      -> else if the last 2-3 frames have 2 eyes:
+        -> If 2 eyes overlap 100/100 pick the biggest
+        -> If 1 eye is irrelevant to previous eyes
+             and 2 of them are close to previous eyes by 10/100
+             or 2 of them overlap 90/100
+             discard the other eye
+        -> else mark as `error`
+    '''
+    pass
+
+
+def fix_face():
+    '''
+    If a face.eyes == 0 or face.eyes > 2 face.error = true
+    (unless eyes can be fixed)
+    '''
+    pass
+
+
 class CascadeClassifierMixIn(object):
 
     def __init__(self, rectangle_tuple, frame, gray):

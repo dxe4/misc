@@ -95,76 +95,74 @@ class Eye(CascadeClassifierMixIn):
 
 class Video(object):
 
-    def __init__(self):
-        pass
+    def __init__(self, size_tuple, in_file=0, out_file=None,
+                 out_format='XVID'):
+        self.size_tuple = size_tuple
+        self.out_format = out_format
+        self.in_file = in_file
+        self.out_file = out_file
 
-
-class VideoOutputConfig(object):
-
-    def __init__(self, file_name, size_x, size_y, video_format='XVID'):
-        self.file_name = file_name
-        self.size_x = size_x
-        self.size_y = size_y
-        self.video_format = video_format
-        self.size_tuple = (self.size_x, self.size_y)
+        if out_file:
+            self.out_writer = self.make_writer()
+        else:
+            self.out_writer = None
 
     def make_writer(self):
-        fourcc = cv2.cv.CV_FOURCC(*self.video_format)
-        video_writer = cv2.VideoWriter(self.file_name,
+        if not self.out_file:
+            raise ValueError('Object must have out_file set')
+
+        fourcc = cv2.cv.CV_FOURCC(*self.out_format)
+        video_writer = cv2.VideoWriter(self.out_file,
                                        fourcc, 10, self.size_tuple)
         return video_writer
 
+    def frame_generator(self):
+        '''
+        Yields all frames from the video.
+        input_file: default=0 ( 0 -> capture from camera)
+        If you press q the generator will stop
+        TODO: allow passing key listeners
+        '''
+        cap = cv2.VideoCapture(self.in_file)
 
-def frame_generator(input_file=0):
-    '''
-    Yields all frames from the video.
-    input_file: default=0 ( 0 -> capture from camera)
-    If you press q the generator will stop
-    TODO: allow passing key listeners
-    '''
-    cap = cv2.VideoCapture(input_file)
+        while(cap.isOpened()):
+            ret, frame = cap.read()
+            if not ret:
+                break
 
-    while(cap.isOpened()):
-        ret, frame = cap.read()
+            yield frame
 
-        if not ret:
-            break
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
 
-        yield frame
+        cap.release()
 
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+    def process_image(self, frame):
+        faces = Face.find(frame)
 
-    cap.release()
+        for face in faces:
+            face.draw()
+            eyes = face.find_eyes()
+            for i in eyes:
+                i.draw()
 
+        return faces
 
-def process_video(input_file=None, video_config=None):
-    video_writer = video_config.make_writer() if video_config else None
+    def post_process_image(self, frame):
+        if self.out_writer:
+            self.out_writer.write(frame)
 
-    for frame in frame_generator(input_file=input_file):
-        process_image(frame)
-        post_process_image(frame, video_writer=video_writer)
+        cv2.imshow('frame', frame)
 
+    def process(self):
+        for frame in self.frame_generator():
+            self.process_image(frame)
+            self.post_process_image(frame)
 
-def post_process_image(frame, video_writer=None):
-    if video_writer:
-        video_writer.write(frame)
+in_file = 0
+out_file = 'out.avi'
 
-    cv2.imshow('frame', frame)
+video = Video((600, 600), in_file=in_file, out_file=out_file)
+video.process()
 
-
-def process_image(frame):
-    faces = Face.find(frame)
-
-    for face in faces:
-        face.draw()
-        eyes = face.find_eyes()
-        for i in eyes:
-            i.draw()
-
-    return faces
-
-
-default_video_config = VideoOutputConfig('videos/out_processed.avi', 600, 600)
-process_video(input_file='videos/out_5.avi', video_config=default_video_config)
 cv2.destroyAllWindows()

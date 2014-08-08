@@ -94,7 +94,7 @@ class Eye(CascadeClassifierMixIn):
     thickness = settings.EYE_BOX_THICKNESS
 
 
-class VideBase(object):
+class VideoBase(object):
 
     def __init__(self, size_tuple, in_file=0, out_file=None,
                  out_format='XVID'):
@@ -151,7 +151,7 @@ class VideBase(object):
         raise NotImplemented
 
 
-class Video(VideBase):
+class Video(VideoBase):
 
     def process_image(self, frame):
         faces = Face.find(frame)

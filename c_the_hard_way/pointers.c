@@ -9,6 +9,7 @@ int main(int argc, char * argv[]) {
     int i = 0;
     //wtf is goin on here, need some beard to figure out
     int count = sizeof(names) / sizeof(*names);
+    printf("%p\n", *names);
     char **cur_name = names;
 
     printf("%d\n", count);

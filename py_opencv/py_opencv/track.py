@@ -1,3 +1,7 @@
+'''
+c++ code from the docs...
+
+
 import numpy as np
 import cv2
 
@@ -45,3 +49,4 @@ while True:
 
 cv2.destroyAllWindows()
 cap.release()
+'''

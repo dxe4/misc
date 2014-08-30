@@ -175,7 +175,7 @@ class Video(VideoBase):
             self.process_image(frame)
             self.post_process_image(frame)
 
-in_file = 0
+in_file = 0  # 'videos/out_5.avi'
 out_file = 'out.avi'
 
 video = Video((600, 600), in_file=in_file, out_file=out_file)

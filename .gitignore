@@ -2,3 +2,4 @@
 *.beam
 *.avi
 videos/
+*.pyc

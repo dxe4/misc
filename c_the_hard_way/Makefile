@@ -5,3 +5,4 @@ clean:
 	rm -f pointers
 	rm -f struct_pointers
 	rm -f ex17
+	rm -f ex18

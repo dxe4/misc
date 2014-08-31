@@ -171,6 +171,29 @@ void Database_list(struct Connection *conn) {
     }
 }
 
+
+void Database_find_by_id(struct Connection * conn, int id) {
+    int i = 0;
+    int status = -1;
+    struct Database *db = conn->db;
+
+    for(i = 0; i < MAX_ROWS; i++) {
+        if(id == i){
+            struct Address *cur = &db->rows[i];
+            if(cur->set) {
+                Address_print(cur);
+                status = 0;
+            }
+        } else if (i > id) {
+            break;
+        }
+    }
+    if(status == -1){
+        printf("%s\n", "Id not found in the db");
+    }
+}
+
+
 int main(int argc, char *argv[]) {
     if(argc < 3){
         die_msg("USAGE: ex17 <dbfile> <action> [action params]");
@@ -195,7 +218,9 @@ int main(int argc, char *argv[]) {
             break;
 
         case 'g':
-            if(argc != 4) die(conn, "Need an id to get");
+            if(argc != 4) {
+                die(conn, "Need an id to get");
+            }
 
             Database_get(conn, id);
             break;
@@ -221,6 +246,15 @@ int main(int argc, char *argv[]) {
         case 'l':
             Database_list(conn);
             break;
+
+        case 'f':
+            if(argc != 4) {
+                die(conn, "Need an id to find");
+            }
+
+            Database_find_by_id(conn, id);
+            break;
+
         default:
             die(conn, "Invalid action, only: c=create, g=get, s=set, d=del, l=list");
     }

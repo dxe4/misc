@@ -35,10 +35,6 @@
 #include "utils.h"
 #include <stdio.h>
 
-void die(const * char message) {
-  printf("ERROR: %s\n", message); 
-  exit(1);
-}
 /*
   <<thread, block>>
   grid = 0
@@ -56,8 +52,7 @@ void die(const * char message) {
 */
 __global__ void rgba_to_greyscale(const uchar4* const rgbaImage,
                        unsigned char* const greyImage,
-                       int numRows, int numCols)
-{
+                       int numRows, int numCols) {
 
   //TODO
   //Fill in the kernel to convert from color to greyscale
@@ -72,38 +67,39 @@ __global__ void rgba_to_greyscale(const uchar4* const rgbaImage,
   //to an absolute 2D location in the image, then use that to
   //calculate a 1D offset
   
-  int rows = -1;
-  int cols = -1;
 
-  for (size_t r = 0; r < numRows; ++r) {
-    for (size_t c = 0; c < numCols; ++c) {
-      uchar4 rgba = rgbaImage[r * numCols + c];
-      float channelSum = .299f * rgba.x + .587f * rgba.y + .114f * rgba.z;
-      greyImage[r * numCols + c] = channelSum;
-    }
+  int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+  int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+
+  // Can't always split on equal size, feels like a waste of ns  
+  if(x >= numRows || y >= numCols) {
+       return;
   }
+
+  int position = x * numCols + y;
+
+  uchar4 rgba = rgbaImage[position];
+  float channelSum = .299f * rgba.x + .587f * rgba.y + .114f * rgba.z;
+  greyImage[position] = channelSum;
 }
 
 void your_rgba_to_greyscale(const uchar4 * const h_rgbaImage, uchar4 * const d_rgbaImage,
-                            unsigned char* const d_greyImage, size_t numRows, size_t numCols)
-{
+                            unsigned char* const d_greyImage, size_t numRows, size_t numCols){
   //You must fill in the correct sizes for the blockSize and gridSize
   //currently only one block with one thread is being launched
-  int i;
-  int blockSize = -1;
+
+  // This loop wont work because of the fancy dimensions passed ;)
   // Get the biggest number that divides both from 2 to 20
-  for(i=2; i<21; i++) {
-      if(numRows % i == 0 && numCols % i == 0){
-          blockSize = i;
-      } 
-  }
-  if(blockSize == -1) {
-    die("Could not pick blockSize");
-  }
-  const dim3 blockSize(blockSize, blockSize, 1);
+  // for(i=2; i<21; i++) {
+  //     if(numRows % i == 0 && numCols % i == 0){
+  //         size = i;
+  //     } 
+  // }
+  const dim3 blockSize(24, 24, 1);
   // 1 thread per 2 pixels?
-  const dim3 gridSize(blockSize, blockSize, 1);
+  const dim3 gridSize((numRows / 12), (numCols / 12), 1);
   rgba_to_greyscale<<<gridSize, blockSize>>>(d_rgbaImage, d_greyImage, numRows, numCols);
   
-  cudaDeviceSynchronize(); checkCudaErrors(cudaGetLastError());
+  cudaDeviceSynchronize();
+  checkCudaErrors(cudaGetLastError());
 }

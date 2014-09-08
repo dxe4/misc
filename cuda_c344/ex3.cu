@@ -102,6 +102,7 @@
 
 #include "reference_calc.cpp"
 #include "utils.h"
+#include <stdio.h> // TODO REMOVE THIS
 
 __global__
 void gaussian_blur(const unsigned char* const inputChannel,
@@ -222,15 +223,31 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
                         unsigned char *d_greenBlurred, 
                         unsigned char *d_blueBlurred,
                         const int filterWidth) {
-  //TODO: Set reasonable block size (i.e., number of threads per block)
-  const dim3 blockSize;
 
-  //TODO:
-  //Compute correct grid size (i.e., number of blocks per kernel launch)
-  //from the image size and and block size.
-  const dim3 gridSize;
+  printf("%i%i\n", numRows, numCols);
+  /**
+  1 is not needed, 24 might be a bad number
+  Might be useful but might be mentioned in later talks
+  http://stackoverflow.com/questions/5689028/how-to-get-card-specs-programatically-in-cuda
+  **/
+  const dim3 blockSize(24, 24, 1);
+  const dim3 gridSize(imageWidth/blockSize.x, 
+                      imageHeight/blockSize.y);
 
-  //TODO: Launch a kernel for separating the RGBA image into different color channels
+  const uchar4* const inputImageRGBA,
+                      int numRows,
+                      int numCols,
+                      unsigned char* const redChannel,
+                      unsigned char* const greenChannel,
+                      unsigned char* const blueChannel
+
+  allocateMemoryAndCopyToGPU(numRowsImage, numColsImage, h_filter, filterWidth);
+
+  separateChannels<<<gridSize, blockSize>>>(d_inputImageRGBA,
+                                            numRows, numCols,
+                                            d_redBlurred,
+                                            d_greenBlurred,
+                                            d_blueBlurred);
 
   // Call cudaDeviceSynchronize(), then call checkCudaErrors() immediately after
   // launching your kernel to make sure that you didn't make any mistakes.
@@ -257,6 +274,8 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
 
   cudaDeviceSynchronize();
   checkCudaErrors(cudaGetLastError());
+
+  cleanup();
 }
 
 

@@ -234,15 +234,7 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
   const dim3 gridSize(imageWidth/blockSize.x, 
                       imageHeight/blockSize.y);
 
-  const uchar4* const inputImageRGBA,
-                      int numRows,
-                      int numCols,
-                      unsigned char* const redChannel,
-                      unsigned char* const greenChannel,
-                      unsigned char* const blueChannel
-
   allocateMemoryAndCopyToGPU(numRowsImage, numColsImage, h_filter, filterWidth);
-
   separateChannels<<<gridSize, blockSize>>>(d_inputImageRGBA,
                                             numRows, numCols,
                                             d_redBlurred,

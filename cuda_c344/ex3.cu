@@ -140,17 +140,22 @@ void separateChannels(const uchar4* const inputImageRGBA,
                       unsigned char* const redChannel,
                       unsigned char* const greenChannel,
                       unsigned char* const blueChannel) {
-  // TODO
-  //
-  // NOTE: Be careful not to try to access memory that is outside the bounds of
-  // the image. You'll want code that performs the following check before accessing
-  // GPU memory:
-  //
-  // if ( absolute_image_position_x >= numCols ||
-  //      absolute_image_position_y >= numRows )
-  // {
-  //     return;
-  // }
+
+  // TODO investigate the cost of make_int2 vs int a, int b
+  const int2 thread_2D_pos = make_int2( blockIdx.x * blockDim.x + threadIdx.x,
+                                        blockIdx.y * blockDim.y + threadIdx.y);
+
+  // Can't always split on equal size, feels like a waste of ns  
+  if(thread_2D_pos.x >= numRows || thread_2D_pos.y >= numCols) {
+       return;
+  }
+
+  const int thread_1D_pos = thread_2D_pos.y * numCols + thread_2D_pos.x;
+  uchar4 rgba = inputImageRGBA[thread_1D_pos];
+
+  redChannel[thread_1D_pos] = rgba.x;
+  greenChannel[thread_1D_pos] = rgba.y;
+  blueChannel[thread_1D_pos] = rgba.z;
 }
 
 //This kernel takes in three color channels and recombines them
@@ -170,8 +175,9 @@ void recombineChannels(const unsigned char* const redChannel,
 
   //make sure we don't try and access memory outside the image
   //by having any threads mapped there return early
-  if (thread_2D_pos.x >= numCols || thread_2D_pos.y >= numRows)
+  if (thread_2D_pos.x >= numCols || thread_2D_pos.y >= numRows){
     return;
+  }
 
   unsigned char red   = redChannel[thread_1D_pos];
   unsigned char green = greenChannel[thread_1D_pos];
@@ -228,13 +234,15 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
 
   // Call cudaDeviceSynchronize(), then call checkCudaErrors() immediately after
   // launching your kernel to make sure that you didn't make any mistakes.
-  cudaDeviceSynchronize(); checkCudaErrors(cudaGetLastError());
+  cudaDeviceSynchronize();
+  checkCudaErrors(cudaGetLastError());
 
   //TODO: Call your convolution kernel here 3 times, once for each color channel.
 
   // Again, call cudaDeviceSynchronize(), then call checkCudaErrors() immediately after
   // launching your kernel to make sure that you didn't make any mistakes.
-  cudaDeviceSynchronize(); checkCudaErrors(cudaGetLastError());
+  cudaDeviceSynchronize(); 
+  checkCudaErrors(cudaGetLastError());
 
   // Now we recombine your results. We take care of launching this kernel for you.
   //
@@ -246,7 +254,9 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
                                              d_outputImageRGBA,
                                              numRows,
                                              numCols);
-  cudaDeviceSynchronize(); checkCudaErrors(cudaGetLastError());
+
+  cudaDeviceSynchronize();
+  checkCudaErrors(cudaGetLastError());
 }
 
 

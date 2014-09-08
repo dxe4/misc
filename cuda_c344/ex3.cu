@@ -102,7 +102,10 @@
 
 #include "reference_calc.cpp"
 #include "utils.h"
-#include <stdio.h> // TODO REMOVE THIS
+#include <math.h>
+
+#define MIN(a,b) (((a)<(b))?(a):(b))
+#define MAX(a,b) (((a)>(b))?(a):(b))
 
 __global__
 void gaussian_blur(const unsigned char* const inputChannel,
@@ -217,6 +220,9 @@ void allocateMemoryAndCopyToGPU(const size_t numRowsImage, const size_t numColsI
 
 }
 
+
+//https://www.youtube.com/watch?v=dMpnHbLsA9I
+//Standard Deviation and Z-scores
 void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_inputImageRGBA,
                         uchar4* const d_outputImageRGBA, const size_t numRows, const size_t numCols,
                         unsigned char *d_redBlurred, 
@@ -233,6 +239,37 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
   const dim3 blockSize(24, 24, 1);
   const dim3 gridSize(imageWidth/blockSize.x, 
                       imageHeight/blockSize.y);
+
+  const float h_filter[] = malloc(sizeof(float) * (filterWidth * filterWidth);
+  
+
+  /**
+   0, 1, 3
+   4, 5, 6
+   7, 8, 9
+  **/
+  const float sigma = 2.;
+  int center = (filterWidth - 1) / 2;
+  float sum = 0 ;
+  int position;
+
+  for (int row = -center; row <= center; row++) {
+    for (int col = -center; col <= center; col++) {
+      float value = expf( -(float)(col * col + row * row) / (2.0 * sigma * sigma));
+      position = (row + filterWidth/2) * filterWidth + col + filterWidth/2;
+      h_filter[position] = value;
+      sum += value;
+    }
+  }
+
+  float normalizationFactor = 1.0 / sum;
+
+  for (int row = -center; row <= center; row++) {
+    for (int col = -center; col <= center; col++) {
+      position = (row + filterWidth/2) * filterWidth + col + filterWidth/2
+      h_filter[position] *= normalizationFactor;
+    }
+  }
 
   allocateMemoryAndCopyToGPU(numRowsImage, numColsImage, h_filter, filterWidth);
   separateChannels<<<gridSize, blockSize>>>(d_inputImageRGBA,

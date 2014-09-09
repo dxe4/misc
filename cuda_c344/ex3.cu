@@ -241,7 +241,7 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
 
   for (int row = -center; row <= center; row++) {
     for (int col = -center; col <= center; col++) {
-      float value = expf( -(float)(col * col + row * row) / (2.0 * sigma * sigma));
+      float value = expf(-(float)(col * col + row * row) / (2.0 * sigma * sigma));
       position = (row + filterWidth/2) * filterWidth + col + filterWidth/2;
       h_filter[position] = value;
       sum += value;
@@ -252,7 +252,7 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
 
   for (int row = -center; row <= center; row++) {
     for (int col = -center; col <= center; col++) {
-      position = (row + filterWidth/2) * filterWidth + col + filterWidth/2
+      position = (row + filterWidth/2) * filterWidth + col + filterWidth/2;
       h_filter[position] *= normalizationFactor;
     }
   }

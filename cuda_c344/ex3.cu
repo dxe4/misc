@@ -103,6 +103,7 @@
 #include "reference_calc.cpp"
 #include "utils.h"
 #include <math.h>
+#include "stdio.h"
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
@@ -221,36 +222,21 @@ void allocateMemoryAndCopyToGPU(const size_t numRowsImage, const size_t numColsI
 }
 
 
-//https://www.youtube.com/watch?v=dMpnHbLsA9I
-//Standard Deviation and Z-scores
+
 void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_inputImageRGBA,
                         uchar4* const d_outputImageRGBA, const size_t numRows, const size_t numCols,
                         unsigned char *d_redBlurred, 
                         unsigned char *d_greenBlurred, 
                         unsigned char *d_blueBlurred,
                         const int filterWidth) {
+  //useful material
+  //https://www.youtube.com/watch?v=dMpnHbLsA9I
+  //Standard Deviation and Z-scores
 
-  printf("%i%i\n", numRows, numCols);
-  /**
-  1 is not needed, 24 might be a bad number
-  Might be useful but might be mentioned in later talks
-  http://stackoverflow.com/questions/5689028/how-to-get-card-specs-programatically-in-cuda
-  **/
-  const dim3 blockSize(24, 24, 1);
-  const dim3 gridSize(imageWidth/blockSize.x, 
-                      imageHeight/blockSize.y);
-
-  const float h_filter[] = malloc(sizeof(float) * (filterWidth * filterWidth);
-  
-
-  /**
-   0, 1, 3
-   4, 5, 6
-   7, 8, 9
-  **/
+  const float h_filter[] = malloc(sizeof(float) * (filterWidth * filterWidth));
   const float sigma = 2.;
   int center = (filterWidth - 1) / 2;
-  float sum = 0 ;
+  float sum = 0;
   int position;
 
   for (int row = -center; row <= center; row++) {
@@ -272,6 +258,16 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
   }
 
   allocateMemoryAndCopyToGPU(numRowsImage, numColsImage, h_filter, filterWidth);
+
+  /**
+  1 is not needed, 24 might be a bad number
+  Might be useful but might be mentioned in later talks
+  http://stackoverflow.com/questions/5689028/how-to-get-card-specs-programatically-in-cuda
+  **/
+  const dim3 blockSize(24, 24, 1);
+  const dim3 gridSize(imageWidth/blockSize.x, 
+                      imageHeight/blockSize.y);
+
   separateChannels<<<gridSize, blockSize>>>(d_inputImageRGBA,
                                             numRows, numCols,
                                             d_redBlurred,

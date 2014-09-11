@@ -213,13 +213,13 @@ void allocateMemoryAndCopyToGPU(const size_t numRowsImage, const size_t numColsI
   //be sure to use checkCudaErrors like the above examples to
   //be able to tell if anything goes wrong
   //IMPORTANT: Notice that we pass a pointer to a pointer to cudaMalloc
-  checkCudaErrors(cudaMalloc(&d_filter,  sizeof(unsigned float) * filterWidth));
+  checkCudaErrors(cudaMalloc(&d_filter, sizeof(float) * filterWidth* filterWidth));
 
   //TODO:
   //Copy the filter on the host (h_filter) to the memory you just allocated
   //on the GPU.  cudaMemcpy(dst, src, numBytes, cudaMemcpyHostToDevice);
   //Remember to use checkCudaErrors!
-  checkCudaErrors(cudaMemcpy(d_filter, h_filter, filterWidth, cudaMemcpyHostToDevice);
+  checkCudaErrors(cudaMemcpy(d_filter, h_filter, filterWidth, cudaMemcpyHostToDevice));
 }
 
 
@@ -234,7 +234,7 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
   //https://www.youtube.com/watch?v=dMpnHbLsA9I
   //Standard Deviation and Z-scores
 
-  const float h_filter[] = malloc(sizeof(float) * (filterWidth * filterWidth));
+  float h_filter[filterWidth*filterWidth];
   const float sigma = 2.;
   int center = (filterWidth - 1) / 2;
   float sum = 0;
@@ -258,7 +258,7 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
     }
   }
 
-  allocateMemoryAndCopyToGPU(numRowsImage, numColsImage, h_filter, filterWidth);
+  allocateMemoryAndCopyToGPU(numRows, numCols, h_filter, filterWidth);
 
   /**
   1 is not needed, 24 might be a bad number
@@ -266,8 +266,8 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
   http://stackoverflow.com/questions/5689028/how-to-get-card-specs-programatically-in-cuda
   **/
   const dim3 blockSize(24, 24, 1);
-  const dim3 gridSize(imageWidth/blockSize.x, 
-                      imageHeight/blockSize.y);
+  const dim3 gridSize(numRows/blockSize.x, 
+                      numCols/blockSize.y);
 
   separateChannels<<<gridSize, blockSize>>>(d_inputImageRGBA,
                                             numRows, numCols,
@@ -282,11 +282,11 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
 
   //TODO: Call your convolution kernel here 3 times, once for each color channel.
   // TODO not sure if the output should be d_* probably a bug
-  gaussian_blur<<gridSizem,blockSize>>(d_redBlurred, d_redBlurred, numRows,
+  gaussian_blur<<<gridSize,blockSize>>>(d_redBlurred, d_redBlurred, numRows,
                                        numCols, d_filter, filterWidth)
-  gaussian_blur<<gridSizem,blockSize>>(d_greenBlurred, d_greenBlurred, numRows,
+  gaussian_blur<<<gridSize,blockSize>>>(d_greenBlurred, d_greenBlurred, numRows,
                                        numCols, d_filter, filterWidth)
-  gaussian_blur<<gridSizem,blockSize>>(d_blueBlurred, d_blueBlurred, numRows,
+  gaussian_blur<<<gridSize,blockSize>>>(d_blueBlurred, d_blueBlurred, numRows,
                                        numCols, d_filter, filterWidth)
   // Again, call cudaDeviceSynchronize(), then call checkCudaErrors() immediately after
   // launching your kernel to make sure that you didn't make any mistakes.
@@ -308,7 +308,6 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
   checkCudaErrors(cudaGetLastError());
 
   cleanup();
-}
 
 
 //Free all the memory that we allocated

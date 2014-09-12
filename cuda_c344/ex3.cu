@@ -224,6 +224,16 @@ void allocateMemoryAndCopyToGPU(const size_t numRowsImage, const size_t numColsI
 
 
 
+
+//Free all the memory that we allocated
+//TODO: make sure you free any arrays that you allocated
+void cleanup() {
+  checkCudaErrors(cudaFree(d_red));
+  checkCudaErrors(cudaFree(d_green));
+  checkCudaErrors(cudaFree(d_blue));
+}
+
+
 void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_inputImageRGBA,
                         uchar4* const d_outputImageRGBA, const size_t numRows, const size_t numCols,
                         unsigned char *d_redBlurred, 
@@ -233,6 +243,11 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
   //useful material
   //https://www.youtube.com/watch?v=dMpnHbLsA9I
   //Standard Deviation and Z-scores
+  int numPixels = numRows * numCols;
+
+  unsigned char *h_redBlurred = (unsigned char *) malloc(sizeof(unsigned char) * numPixels);
+  unsigned char *h_greenBlurred = (unsigned char *) malloc(sizeof(unsigned char) * numPixels);
+  unsigned char *h_blueBlurred = (unsigned char *) malloc(sizeof(unsigned char) * numPixels);;
 
   float h_filter[filterWidth*filterWidth];
   const float sigma = 2.;
@@ -282,11 +297,11 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
 
   //TODO: Call your convolution kernel here 3 times, once for each color channel.
   // TODO not sure if the output should be d_* probably a bug
-  gaussian_blur<<<gridSize,blockSize>>>(d_redBlurred, d_redBlurred, numRows,
+  gaussian_blur<<<gridSize,blockSize>>>(h_redBlurred, d_redBlurred, numRows,
                                        numCols, d_filter, filterWidth);
-  gaussian_blur<<<gridSize,blockSize>>>(d_greenBlurred, d_greenBlurred, numRows,
+  gaussian_blur<<<gridSize,blockSize>>>(h_greenBlurred, d_greenBlurred, numRows,
                                        numCols, d_filter, filterWidth);
-  gaussian_blur<<<gridSize,blockSize>>>(d_blueBlurred, d_blueBlurred, numRows,
+  gaussian_blur<<<gridSize,blockSize>>>(h_blueBlurred, d_blueBlurred, numRows,
                                        numCols, d_filter, filterWidth);
   // Again, call cudaDeviceSynchronize(), then call checkCudaErrors() immediately after
   // launching your kernel to make sure that you didn't make any mistakes.
@@ -308,13 +323,4 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
   checkCudaErrors(cudaGetLastError());
 
   cleanup();
-}
-
-
-//Free all the memory that we allocated
-//TODO: make sure you free any arrays that you allocated
-void cleanup() {
-  checkCudaErrors(cudaFree(d_red));
-  checkCudaErrors(cudaFree(d_green));
-  checkCudaErrors(cudaFree(d_blue));
 }

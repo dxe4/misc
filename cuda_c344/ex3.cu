@@ -202,9 +202,10 @@ void allocateMemoryAndCopyToGPU(const size_t numRowsImage, const size_t numColsI
 
   //allocate memory for the three different channels
   //original
-  checkCudaErrors(cudaMalloc(&d_red,   sizeof(unsigned char) * numRowsImage * numColsImage));
-  checkCudaErrors(cudaMalloc(&d_green, sizeof(unsigned char) * numRowsImage * numColsImage));
-  checkCudaErrors(cudaMalloc(&d_blue,  sizeof(unsigned char) * numRowsImage * numColsImage));
+
+  checkCudaErrors(cudaMalloc((void **) &d_red, sizeof(unsigned char) * numRowsImage * numColsImage));
+  checkCudaErrors(cudaMalloc((void **) &d_green, sizeof(unsigned char) * numRowsImage * numColsImage));
+  checkCudaErrors(cudaMalloc((void **) &d_blue, sizeof(unsigned char) * numRowsImage * numColsImage));
 
   //TODO:
   //Allocate memory for the filter on the GPU
@@ -213,7 +214,7 @@ void allocateMemoryAndCopyToGPU(const size_t numRowsImage, const size_t numColsI
   //be sure to use checkCudaErrors like the above examples to
   //be able to tell if anything goes wrong
   //IMPORTANT: Notice that we pass a pointer to a pointer to cudaMalloc
-  checkCudaErrors(cudaMalloc(&d_filter, sizeof(float) * filterWidth* filterWidth));
+  checkCudaErrors(cudaMalloc((void **) &d_filter, sizeof(float) * filterWidth* filterWidth));
 
   //TODO:
   //Copy the filter on the host (h_filter) to the memory you just allocated
@@ -247,7 +248,7 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
 
   unsigned char *h_redBlurred = (unsigned char *) malloc(sizeof(unsigned char) * numPixels);
   unsigned char *h_greenBlurred = (unsigned char *) malloc(sizeof(unsigned char) * numPixels);
-  unsigned char *h_blueBlurred = (unsigned char *) malloc(sizeof(unsigned char) * numPixels);;
+  unsigned char *h_blueBlurred = (unsigned char *) malloc(sizeof(unsigned char) * numPixels);
 
   float h_filter[filterWidth*filterWidth];
   const float sigma = 2.;

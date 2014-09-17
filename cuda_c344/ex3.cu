@@ -206,6 +206,7 @@ void allocateMemoryAndCopyToGPU(const size_t numRowsImage, const size_t numColsI
   checkCudaErrors(cudaMalloc((void **) &d_red, sizeof(unsigned char) * numRowsImage * numColsImage));
   checkCudaErrors(cudaMalloc((void **) &d_green, sizeof(unsigned char) * numRowsImage * numColsImage));
   checkCudaErrors(cudaMalloc((void **) &d_blue, sizeof(unsigned char) * numRowsImage * numColsImage));
+  
 
   //TODO:
   //Allocate memory for the filter on the GPU
@@ -228,12 +229,6 @@ void allocateMemoryAndCopyToGPU(const size_t numRowsImage, const size_t numColsI
 
 //Free all the memory that we allocated
 //TODO: make sure you free any arrays that you allocated
-void cleanup() {
-  checkCudaErrors(cudaFree(d_red));
-  checkCudaErrors(cudaFree(d_green));
-  checkCudaErrors(cudaFree(d_blue));
-}
-
 
 void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_inputImageRGBA,
                         uchar4* const d_outputImageRGBA, const size_t numRows, const size_t numCols,
@@ -323,5 +318,11 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
   cudaDeviceSynchronize();
   checkCudaErrors(cudaGetLastError());
 
-  cleanup();
+}
+
+
+void cleanup() {
+  checkCudaErrors(cudaFree(d_red));
+  checkCudaErrors(cudaFree(d_green));
+  checkCudaErrors(cudaFree(d_blue));
 }

@@ -139,39 +139,43 @@ void gaussian_blur(const unsigned char* const inputChannel,
   //     return;
   // }
 
-  // size -> 8 squares for 1, 24 squres for 2 etc.
-  // ((2+2)+1)**2)-1 = ((4+1)**2)-1
-  // mul by 2 to keep the array flat (must be faster)
-  // in python this would be set(product([..], [..])) - (x,y)
-  // for a case of 1x1 blur arr should have the values:
-  // [-1,1,0,1,1,1,-1,0,0,0,1,0,-1,-1,0,-1,1,-1] (not in this oreder)
-  int size = (pow((filterWidth * filterWidth) + 1, 2) - 1) * 2;
-  int arr[size];
+  // NOT NEEDED
+  /*
+    // size -> 8 squares for 1, 24 squres for 2 etc.
+    // ((2+2)+1)**2)-1 = ((4+1)**2)-1
+    // mul by 2 to keep the array flat (must be faster)
+    // in python this would be set(product([..], [..])) - (x,y)
+    // for a case of 1x1 blur arr should have the values:
+    // [-1,1,0,1,1,1,-1,0,0,0,1,0,-1,-1,0,-1,1,-1] (not in this oreder)
+    int size = (pow((filterWidth * filterWidth) + 1, 2) - 1) * 2;
+    int arr[size];
 
-  int i = -filterWidth;
-  int j = -filterWidth;
+    int i = -filterWidth;
+    int j = -filterWidth;
 
-  int count = 0;
-  int sum ;
-  int potential_pos_x;  // Make sure we are within img boundaries
-  int potential_pos_y;  // Make sure we are within img boundaries
+    int count = 0;
+    int sum ;
+    int potential_pos_x;  // Make sure we are within img boundaries
+    int potential_pos_y;  // Make sure we are within img boundaries
 
-  for(int i=-filterWidth; i++; i<=filterWidth) {
-      for(int j=-filterWidth; j++; j<=filterWidth) {
-          sum = i + j;
-          potential_pos_x = thread_2D_pos.x + i;
-          potential_pos_y = thread_2D_pos.y + j;
+    for(int i=-filterWidth; i++; i<=filterWidth) {
+        for(int j=-filterWidth; j++; j<=filterWidth) {
+            sum = i + j;
+            potential_pos_x = thread_2D_pos.x + i;
+            potential_pos_y = thread_2D_pos.y + j;
 
-          if( sum == 0 || potential_pos_x > numCols || potential_pos_x < 0
-             || potential_pos_y > numRows || potential_pos_y < 0 ) {
-              continue;
-          } else {
-              arr[count] = i;
-              arr[count] = j;
-          }
-          count = count + 2;
-      }
-  }
+            if( sum == 0 || potential_pos_x > numCols || potential_pos_x < 0
+               || potential_pos_y > numRows || potential_pos_y < 0 ) {
+                continue;
+            } else {
+                arr[count] = i;
+                arr[count] = j;
+            }
+            count = count + 2;
+        }
+    }
+  */
+  
   
   // NOTE: If a thread's absolute position 2D position is within the image, but some of
   // its neighbors are outside the image, then you will need to be extra careful. Instead

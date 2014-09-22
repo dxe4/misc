@@ -115,6 +115,16 @@ void gaussian_blur(const unsigned char* const inputChannel,
                    const float* const filter, const int filterWidth) {
   // TODO
   
+  const int2 thread_2D_pos = make_int2( blockIdx.x * blockDim.x + threadIdx.x,
+                                        blockIdx.y * blockDim.y + threadIdx.y);
+
+  const int thread_1D_pos = thread_2D_pos.y * numCols + thread_2D_pos.x;
+
+  //make sure we don't try and access memory outside the image
+  //by having any threads mapped there return early
+  if (thread_2D_pos.x >= numCols || thread_2D_pos.y >= numRows){
+    return;
+  }
   // NOTE: Be sure to compute any intermediate results in floating point
   // before storing the final result as unsigned char.
 

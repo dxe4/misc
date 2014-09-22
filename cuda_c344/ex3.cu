@@ -120,6 +120,8 @@ void gaussian_blur(const unsigned char* const inputChannel,
 
   const int thread_1D_pos = thread_2D_pos.y * numCols + thread_2D_pos.x;
 
+  const int max_size = numRows * numCols;
+
   //make sure we don't try and access memory outside the image
   //by having any threads mapped there return early
   if (thread_2D_pos.x >= numCols || thread_2D_pos.y >= numRows){
@@ -149,11 +151,18 @@ void gaussian_blur(const unsigned char* const inputChannel,
 
   int i = -filterWidth;
   int j = -filterWidth;
+
   int count = 0;
+  int sum ;
+  int potential_pos;  // Make sure we are within img boundaries
   
-  for(int i=-filterWidth; i++; i<=filterWidth){
-      for(int j=-filterWidth; j++; j<=filterWidth){
-          if(i + j != 0) {
+  for(int i=-filterWidth; i++; i<=filterWidth) {
+      for(int j=-filterWidth; j++; j<=filterWidth) {
+          sum = i + j;
+          potential_pos = sum + thread_1D_pos;
+          if(sum == 0 || potential_pos > max_size || potential_pos < 0 ) {
+              continue;
+          } else {
               arr[count] = i;
               arr[count] = j;
           }

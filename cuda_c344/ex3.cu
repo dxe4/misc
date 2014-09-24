@@ -103,7 +103,7 @@
 #include "reference_calc.cpp"
 #include "utils.h"
 #include <math.h>
-#include "stdio.h"
+#include <stdio.h>
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
@@ -121,8 +121,8 @@ void gaussian_blur(const unsigned char* const inputChannel,
 
   //make sure we don't try and access memory outside the image
   //by having any threads mapped there return early
-  if (thread_2D_pos.x >= numCols || thread_2D_pos.y >= numRows){
-    return;
+  if(thread_2D_pos.x >= numCols || thread_2D_pos.y >= numRows) {
+       return;
   }
   
   const int thread_1D_pos = thread_2D_pos.y * numCols + thread_2D_pos.x;
@@ -200,7 +200,7 @@ void separateChannels(const uchar4* const inputImageRGBA,
                                         blockIdx.y * blockDim.y + threadIdx.y);
 
   // Can't always split on equal size, feels like a waste of ns  
-  if(thread_2D_pos.x >= numRows || thread_2D_pos.y >= numCols) {
+  if(thread_2D_pos.x >= numCols || thread_2D_pos.y >= numRows) {
        return;
   }
 
@@ -325,9 +325,8 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
   Might be useful but might be mentioned in later talks
   http://stackoverflow.com/questions/5689028/how-to-get-card-specs-programatically-in-cuda
   **/
-  const dim3 blockSize(24, 24, 1);
-  const dim3 gridSize(numRows/blockSize.x, 
-                      numCols/blockSize.y);
+  const dim3 blockSize(32, 32, 1);
+  const dim3 gridSize(numCols / blockSize.x + 1, numRows / blockSize.y + 1);
 
   separateChannels<<<gridSize, blockSize>>>(d_inputImageRGBA,
                                             numRows, numCols,

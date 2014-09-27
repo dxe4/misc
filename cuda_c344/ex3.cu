@@ -149,10 +149,8 @@ void gaussian_blur(const unsigned char* const inputChannel,
     // [-1,1,0,1,1,1,-1,0,0,0,1,0,-1,-1,0,-1,1,-1] (not in this oreder)
     // int size = (pow((filterWidth * filterWidth) + 1, 2) - 1) * 2;
 
-    int i = -filterWidth;
-    int j = -filterWidth;
-
-    int x,y;
+    int i = -filterWidth*filterWidth;
+    int j = -filterWidth*filterWidth;
 
     int count = 0;
     int sum ;
@@ -160,8 +158,8 @@ void gaussian_blur(const unsigned char* const inputChannel,
     int potential_pos_y;  // Make sure we are within img boundaries
     int pos_to_change;
 
-    for(int j=filterWidth; j>=-filterWidth; j--) {
-        for(int i=-filterWidth; i<=filterWidth; i++) {
+    for(int j=filterWidth; j>-filterWidth; j--) {
+        for(int i=-filterWidth; i<filterWidth; i++) {
             sum = i + j;
             potential_pos_x = thread_2D_pos.x + i;
             potential_pos_y = thread_2D_pos.y + j;
@@ -171,7 +169,8 @@ void gaussian_blur(const unsigned char* const inputChannel,
                 continue;
             } else {
                 pos_to_change = potential_pos_y * numCols + potential_pos_x;
-                outputChannel[pos_to_change] = inputChannel[pos_to_change] * filter[pos_to_change];
+                outputChannel[pos_to_change] = inputChannel[pos_to_change] * 0.2; // filter[count];
+                __syncthreads();
             }
             count++;
         }
@@ -306,7 +305,7 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
   for (int row = -center; row <= center; row++) {
     for (int col = -center; col <= center; col++) {
       float value = expf(-(float)(col * col + row * row) / (2.0 * sigma * sigma));
-      position = (row + filterWidth/2) * filterWidth + col + filterWidth/2;
+      position = (row + center) * filterWidth + col + center;
       h_filter[position] = value;
       sum += value;
     }
@@ -316,7 +315,7 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
 
   for (int row = -center; row <= center; row++) {
     for (int col = -center; col <= center; col++) {
-      position = (row + filterWidth/2) * filterWidth + col + filterWidth/2;
+      position = (row + center) * filterWidth + col + center;
       h_filter[position] *= normalizationFactor;
     }
   }

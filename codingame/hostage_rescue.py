@@ -1,6 +1,7 @@
 import sys
 import math
-from itertools import product
+from itertools import product, starmap
+from collections import defaultdict
 # Auto-generated code below aims at helping you parse
 # the standard input according to the problem statement.
 
@@ -21,43 +22,56 @@ direction = {
     'UL': (-1, 1),
 }
 
-opposite = {
+
+def _default_tuple():
+    return (False, False)
+
+opposite = defaultdict(_default_tuple)
+opposite.update({
     'UD': (False, True),
     'RL': (True, False),
     'DU': (False, True),
     'LR': (True, False),
-}
+})
 
 
-def is_opposite(BOMB_DIR, previous):
-    if previous is None:
+def is_opposite(BOMB_DIR, previous_bomb):
+    if previous_bomb is None:
         return (False, False)
     else:
         result = []
-        for pair in product(BOMB_DIR, previous):
-            try:
-                result.append(opposite[''.join(pair)])
-            except KeyError:
-                pass  # Not opposite
+        for pair in product(BOMB_DIR, previous_bomb):
+            # convert char tuple to string
+            key = ''.join(pair)
+            # If key does not exist returns (False, False)
+            result.append(opposite[key])
+
         if not result:
             return (False, False)
+
         # This is probably an itertools job
         x_opposite = bool([i[0] for i in result if i[0] is True])
         y_opposite = bool([i[1] for i in result if i[1] is True])
+
         return x_opposite, y_opposite
 
 
-def should_scale(BOMB_DIR, previous):
-    x_opposite, y_opposite = is_opposite(BOMB_DIR, previous)
+def should_scale(BOMB_DIR, previous_bomb):
+    x_opposite, y_opposite = is_opposite(BOMB_DIR, previous_bomb)
     return not x_opposite, not y_opposite
 
+
 # game loop
-previous = None
+previous_bomb = None
+prevopis_pos_x = X0
+prevopis_pos_y = Y0
 x_reverted = False
 y_reverted = False
+direction_swap = 0
+same_bomb_times = 0
 
 # The factor has to change according to previous pos in case of opposite
-factor = 1
+factor = 2
 
 while 1:
     # the direction of the bombs from batman's current location (U, UR, R, DR,
@@ -65,31 +79,38 @@ while 1:
     BOMB_DIR = input()
     X1, Y1 = direction[BOMB_DIR]
 
-    if previous == BOMB_DIR:
-        x_reverted, x_reverted = False, False
-        factor = 2
+    distance_x, distance_y = prevopis_pos_x - X0, prevopis_pos_y - Y0
 
-    scale_x, scale_y = int((W - X0) / factor), int((H - Y0) / factor)
-    factor = factor + 2
-    scale_x, scale_y = max(scale_x, 1), max(scale_y, 1)
+    opposite_x, opposite_y = is_opposite(BOMB_DIR, previous_bomb)
 
-    # print("scale", scale_x, scale_y, file=sys.stderr)
-    _x, _y = should_scale(BOMB_DIR, previous)
+    scale_x = (W - X0) / factor
+    scale_y = (H - Y0) / factor
+    scale_x, scale_y = starmap(max, [(scale_x, 1), (scale_y, 1)])
 
-    if (not _x or x_reverted) and not previous == BOMB_DIR:
+    factor = factor + 1
+    if any([opposite_x, opposite_y]):
+        direction_swap = direction_swap + 1
+        scale_x = scale_x / 4
+        scale_y = scale_y / 4
+    elif previous_bomb == BOMB_DIR:
+        factor = 1
+        same_bomb_times = same_bomb_times + 1
+        scale_x = ((W - X0) / factor) * same_bomb_times
+        scale_y = ((H - Y0) / factor) * same_bomb_times
+    if direction_swap >= 2:
         scale_x = 1
-        x_reverted = True
-    if (not _y or y_reverted) and not previous == BOMB_DIR:
         scale_y = 1
-        y_reverted = True
 
     print("scale", scale_x, scale_y, file=sys.stderr)
-    X0, Y0 = X0 + X1 * scale_x, Y0 - Y1 * scale_y
+    X0 = X0 + X1 * scale_x
+    Y0 = Y0 - Y1 * scale_y
 
-    X0, Y0 = max(X0, 0), max(Y0, 0)
-    X0, Y0 = min(X0, W - 1), min(Y0, H - 1)
+    X0, Y0 = starmap(max, [(X0, 0), (Y0, 0)])
+    X0, Y0 = starmap(min, [(X0, W - 1), (Y0, H - 1)])
     # Write an action using print
     # To debug: print("Debug messages...", file=sys.stderr)
-    previous = BOMB_DIR
+    previous_bomb = BOMB_DIR
 
+    X0, Y0 = int(X0), int(Y0)
     print(X0, Y0)  # the location of the next window Batman should jump to.
+    prevopis_pos_x, prevopis_pos_y = X0, Y0

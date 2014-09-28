@@ -41,6 +41,19 @@ class XY(object):
     def copy(self):
         return XY(self.x, self.y)
 
+    def swap_scale(self, scale, swapped_count):
+        if self.x and not self.y and swapped_count.y > 1:
+            scale.x = scale.x + (scale.x * 0.05)
+        if self.y and not self.x and swapped_count.y > 1:
+            scale.y = scale.y + (scale.y * 0.05)
+
+        if self.x:
+            scale.x = scale.x / (1.5 * (swapped_count.x + 1))
+            swapped_count.x = swapped_count.x + 1
+        if self.y:
+            scale.y = scale.y / (1.5 * (swapped_count.y + 1))
+            swapped_count.y = swapped_count.y + 1
+
 
 directions = {
     'U': XY(0, -1),
@@ -80,6 +93,11 @@ def _swapped(bomb, previous_bomb, axis):
 
 
 def check_swapped(bomb, previous_bomb):
+    '''
+    Check if we swapped direction
+    from RU to LD is True, True
+    from RU to LU is True, False
+    '''
     return XY(_swapped(bomb, previous_bomb, X),
               _swapped(bomb, previous_bomb, Y))
 
@@ -104,7 +122,9 @@ scale = XY(initial_scale(W, X0),
            initial_scale(H, Y0))
 swapped_count = XY(0, 0)
 previous_bomb_direction = None
-# The factor has to change according to previous pos in case of opposite
+
+# Keep count of re-visited positions after swap to avoid them
+swap_diff = []
 
 while 1:
     # the direction of the bombs from batman's current location (U, UR, R, DR,
@@ -113,13 +133,7 @@ while 1:
     move_direction = directions[bomb_direction]
 
     swapped = check_swapped(bomb_direction, previous_bomb_direction)
-
-    if swapped.x:
-        scale.x = scale.x / (1.5 * (swapped_count.x + 1))
-        swapped_count.x = swapped_count.x + 1
-    if swapped.y:
-        scale.y = scale.y / (1.5 * (swapped_count.y + 1))
-        swapped_count.y = swapped_count.y + 1
+    swapped.swap_scale(scale, swapped_count)
 
     scale.validate_move(_min=1)
 

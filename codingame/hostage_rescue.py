@@ -90,14 +90,10 @@ while 1:
     bomb_direction = input()
     x_direction, y_direction = directions[bomb_direction]
 
-    print(x_direction, y_direction, bomb_direction, X0, Y0, file=sys.stderr)
-    print(scale_y, scale_x, file=sys.stderr)
     X0 = X0 + (scale_x * x_direction)
     Y0 = Y0 + (scale_y * y_direction)
-    print('scale', X0, Y0, file=sys.stderr)
     X0, Y0 = validate_points(X0, Y0)
 
-    print('scale 2', X0, Y0, H, file=sys.stderr)
     # Save previous values
     previous_pos = X0, Y0
     previous_bomb = bomb_direction

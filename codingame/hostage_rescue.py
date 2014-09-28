@@ -34,44 +34,51 @@ opposite.update({
     'LR': (True, False),
 })
 
+Y = {'U', 'D'}
+X = {'L', 'R'}
 
-def is_opposite(BOMB_DIR, previous_bomb):
+
+def similarity(bomb, previous_bomb, axis):
     if previous_bomb is None:
-        return (False, False)
+        return False
     else:
-        result = []
-        for pair in product(BOMB_DIR, previous_bomb):
-            # convert char tuple to string
-            key = ''.join(pair)
-            # If key does not exist returns (False, False)
-            result.append(opposite[key])
-
-        if not result:
-            return (False, False)
-
-        # This is probably an itertools job
-        x_opposite = bool([i[0] for i in result if i[0] is True])
-        y_opposite = bool([i[1] for i in result if i[1] is True])
-
-        return x_opposite, y_opposite
+        # All new letters in bomb
+        changed = {i for i in bomb if i not in previous_bomb}
+        # Check if the new letter match the given axis
+        return bool(changed.intersection(axis))
 
 
-def should_scale(BOMB_DIR, previous_bomb):
-    x_opposite, y_opposite = is_opposite(BOMB_DIR, previous_bomb)
-    return not x_opposite, not y_opposite
+def initial_scale(axis_size, current_pos):
+    '''
+    Chances are if we start at the center we are closer to the bomb so
+    If we start close to the edge move size / 2.7
+    If we start closer to the center move size / 1.7
+    '''
+    difff = float(axis_size - current_pos) / float(axis_size)
+    if 0.2 > difff < 0.8:
+        return axis_size / 2.7
+    else:
+        return axis_size / 1.7
 
 
-# game loop
-previous_bomb = None
-prevopis_pos_x = X0
-prevopis_pos_y = Y0
-x_reverted = False
-y_reverted = False
-direction_swap = 0
-same_bomb_times = 0
+def limit_points(x, y):
+    '''
+    Ensure points are in boundaries
+    '''
+    x = max(x, W+1)
+    y = max(y, H+1)
 
+    x = min(x, 0)
+    y = min(y, 0)
+
+    return x, y
+
+
+scale_x = initial_scale(W, X0)
+scale_y = initial_scale(H, Y0)
+
+previous_pos = None
 # The factor has to change according to previous pos in case of opposite
-factor = 2
 
 while 1:
     # the direction of the bombs from batman's current location (U, UR, R, DR,
@@ -79,38 +86,7 @@ while 1:
     BOMB_DIR = input()
     X1, Y1 = direction[BOMB_DIR]
 
-    distance_x, distance_y = prevopis_pos_x - X0, prevopis_pos_y - Y0
-
-    opposite_x, opposite_y = is_opposite(BOMB_DIR, previous_bomb)
-
-    scale_x = (W - X0) / factor
-    scale_y = (H - Y0) / factor
-    scale_x, scale_y = starmap(max, [(scale_x, 1), (scale_y, 1)])
-
-    factor = factor + 1
-    if any([opposite_x, opposite_y]):
-        direction_swap = direction_swap + 1
-        scale_x = scale_x / 4
-        scale_y = scale_y / 4
-    elif previous_bomb == BOMB_DIR:
-        factor = 1
-        same_bomb_times = same_bomb_times + 1
-        scale_x = ((W - X0) / factor) * same_bomb_times
-        scale_y = ((H - Y0) / factor) * same_bomb_times
-    if direction_swap >= 2:
-        scale_x = 1
-        scale_y = 1
-
-    print("scale", scale_x, scale_y, file=sys.stderr)
-    X0 = X0 + X1 * scale_x
-    Y0 = Y0 - Y1 * scale_y
-
-    X0, Y0 = starmap(max, [(X0, 0), (Y0, 0)])
-    X0, Y0 = starmap(min, [(X0, W - 1), (Y0, H - 1)])
-    # Write an action using print
-    # To debug: print("Debug messages...", file=sys.stderr)
-    previous_bomb = BOMB_DIR
-
     X0, Y0 = int(X0), int(Y0)
+
+    X0, Y0 = limit_points(X0, Y0)
     print(X0, Y0)  # the location of the next window Batman should jump to.
-    prevopis_pos_x, prevopis_pos_y = X0, Y0

@@ -1,7 +1,7 @@
 import sys
 import math
 from itertools import product, starmap
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 # Auto-generated code below aims at helping you parse
 # the standard input according to the problem statement.
 
@@ -11,15 +11,43 @@ W, H = [int(i) for i in input().split()]
 N = int(input())  # maximum number of turns before game over.
 X0, Y0 = [int(i) for i in input().split()]
 
+
+class XY(object):
+
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+    def scale_pos(self, scale, direction):
+        self.x = self.x + (scale.x * direction.x)
+        self.y = self.y + (scale.y * direction.y)
+
+    def validate_move(self):
+        '''
+        Ensure points are acceptable by codingame
+        '''
+        x, y = self.x, self.y
+        # Could be float because of scaling
+        x, y = map(int, [x, y])
+
+        x = min(x, W - 1)
+        y = min(y, H - 1)
+
+        x = max(x, 0)
+        y = max(y, 0)
+
+        self.x, self.y = x, y
+
+
 directions = {
-    'U': (0, -1),
-    'UR': (1, -1),
-    'R': (1, 0),
-    'DR': (1, 1),
-    'D': (0, 1),
-    'DL': (-1, 1),
-    'L': (-1, 0),
-    'UL': (-1, -1),
+    'U': XY(0, -1),
+    'UR': XY(1, -1),
+    'R': XY(1, 0),
+    'DR': XY(1, 1),
+    'D': XY(0, 1),
+    'DL': XY(-1, 1),
+    'L': XY(-1, 0),
+    'UL': XY(-1, -1),
 }
 
 
@@ -61,26 +89,12 @@ def initial_scale(axis_size, current_pos):
         return axis_size / 1.7
 
 
-def validate_points(x, y):
-    '''
-    Ensure points are acceptable by codingame
-    '''
-    # Could be float because of scaling
-    x, y = map(int, [x, y])
+current_pos = XY(X0, Y0)
+previous_pos = current_pos
 
-    x = min(x, W-1)
-    y = min(y, H-1)
-
-    x = max(x, 0)
-    y = max(y, 0)
-
-    return x, y
-
-
-scale_x = initial_scale(W, X0)
-scale_y = initial_scale(H, Y0)
-
-previous_pos = None
+scale = XY(initial_scale(W, X0),
+           initial_scale(H, Y0))
+swapped = XY(0, 0)
 previous_bomb = None
 # The factor has to change according to previous pos in case of opposite
 
@@ -88,14 +102,14 @@ while 1:
     # the direction of the bombs from batman's current location (U, UR, R, DR,
     # D, DL, L or UL)
     bomb_direction = input()
-    x_direction, y_direction = directions[bomb_direction]
+    move_direction = directions[bomb_direction]
 
-    X0 = X0 + (scale_x * x_direction)
-    Y0 = Y0 + (scale_y * y_direction)
-    X0, Y0 = validate_points(X0, Y0)
+    current_pos.scale_pos(scale, move_direction)
+    current_pos.validate_move()
 
     # Save previous values
-    previous_pos = X0, Y0
+    previous_pos = XY(current_pos.x, current_pos.y)
     previous_bomb = bomb_direction
 
-    print(X0, Y0)  # the location of the next window Batman should jump to.
+    # the location of the next window Batman should jump to.
+    print(current_pos.x, current_pos.y)

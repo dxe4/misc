@@ -1,5 +1,6 @@
 import sys
 import math
+import math
 
 # Auto-generated code below aims at helping you parse
 # the standard input according to the problem statement.
@@ -22,6 +23,8 @@ for i in range(N):
     previous_x = LAND_X
 
 max_v_speed = -38
+gravity = 3.711
+mass = 1
 
 
 def in_boundaries(x, y):
@@ -36,10 +39,24 @@ def calculate_vertical_power(VS, P):
         P = min(P + 1, 4)
     else:
         P = 0
+    return P
 
 
-def position_ship(HS, VS, P, X, Y, R):
-    pass
+def calculate_force(accel, angle):
+    if angle == 0:
+        x = accel * mass
+        y = (accel + gravity) * mass
+        return x, y
+    else:
+        x = math.sin(math.radians(angle)) * accel
+        y = math.cos(math.radians(angle)) * accel
+        x = max(x, 0.001)
+        y = max(y, 0.001)
+        return x, y
+
+
+def position_ship(HS, VS, P, X, Y, R, force_x, force_y):
+    return 15, 2
 
 # game loop
 while 1:
@@ -58,4 +75,9 @@ while 1:
         # R P. R is the desired rotation angle. P is the desired thrust power.
         print("0 {}".format(P))
     else:
-        position_ship(HS, VS, P, X, Y, R)
+        force_x, force_y = calculate_force(P, R)
+        force_y = force_y + gravity
+        print(force_x, force_y, file=sys.stderr)
+
+        P, R = position_ship(HS, VS, P, X, Y, R, force_x, force_y)
+        print(P, R)

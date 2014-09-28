@@ -22,7 +22,7 @@ class XY(object):
         self.x = self.x + (scale.x * direction.x)
         self.y = self.y + (scale.y * direction.y)
 
-    def validate_move(self):
+    def validate_move(self, _min=0):
         '''
         Ensure points are acceptable by codingame
         '''
@@ -33,10 +33,13 @@ class XY(object):
         x = min(x, W - 1)
         y = min(y, H - 1)
 
-        x = max(x, 0)
-        y = max(y, 0)
+        x = max(x, _min)
+        y = max(y, _min)
 
         self.x, self.y = x, y
+
+    def copy(self):
+        return XY(self.x, self.y)
 
 
 directions = {
@@ -66,7 +69,7 @@ Y = {'U', 'D'}
 X = {'L', 'R'}
 
 
-def similarity(bomb, previous_bomb, axis):
+def _swapped(bomb, previous_bomb, axis):
     if previous_bomb is None:
         return False
     else:
@@ -74,6 +77,11 @@ def similarity(bomb, previous_bomb, axis):
         changed = {i for i in bomb if i not in previous_bomb}
         # Check if the new letter match the given axis
         return bool(changed.intersection(axis))
+
+
+def check_swapped(bomb, previous_bomb):
+    return XY(_swapped(bomb, previous_bomb, X),
+              _swapped(bomb, previous_bomb, Y))
 
 
 def initial_scale(axis_size, current_pos):
@@ -94,8 +102,8 @@ previous_pos = current_pos
 
 scale = XY(initial_scale(W, X0),
            initial_scale(H, Y0))
-swapped = XY(0, 0)
-previous_bomb = None
+swapped_count = XY(0, 0)
+previous_bomb_direction = None
 # The factor has to change according to previous pos in case of opposite
 
 while 1:
@@ -104,12 +112,23 @@ while 1:
     bomb_direction = input()
     move_direction = directions[bomb_direction]
 
+    swapped = check_swapped(bomb_direction, previous_bomb_direction)
+
+    if swapped.x:
+        scale.x = scale.x / (1.5 * (swapped_count.x + 1))
+        swapped_count.x = swapped_count.x + 1
+    if swapped.y:
+        scale.y = scale.y / (1.5 * (swapped_count.y + 1))
+        swapped_count.y = swapped_count.y + 1
+
+    scale.validate_move(_min=1)
+
     current_pos.scale_pos(scale, move_direction)
     current_pos.validate_move()
 
     # Save previous values
-    previous_pos = XY(current_pos.x, current_pos.y)
-    previous_bomb = bomb_direction
+    previous_pos = current_pos.copy()
+    previous_bomb_direction = bomb_direction
 
     # the location of the next window Batman should jump to.
     print(current_pos.x, current_pos.y)

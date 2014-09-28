@@ -55,7 +55,19 @@ def calculate_force(accel, angle):
         return x, y
 
 
+def angle_to_area(X0, Y0, X1, Y1):
+    '''
+    Returns an angle to reach the point direct
+    direct is not always the case might need improvements
+    '''
+    dX = X0 - X1
+    dY = Y0 - Y1
+    angle = math.atan2(dY / dX) * 180 / pi
+    return int(angle)
+
+
 def position_ship(HS, VS, P, X, Y, R, force_x, force_y):
+    angle = angle_to_area(X, Y, landing_area[0][0], landing_area[0][1])
     return 15, 2
 
 # game loop

@@ -11,15 +11,15 @@ W, H = [int(i) for i in input().split()]
 N = int(input())  # maximum number of turns before game over.
 X0, Y0 = [int(i) for i in input().split()]
 
-direction = {
-    'U': (0, 1),
-    'UR': (1, 1),
+directions = {
+    'U': (0, -1),
+    'UR': (1, -1),
     'R': (1, 0),
-    'DR': (1, -1),
-    'D': (0, -1),
-    'DL': (-1, -1),
+    'DR': (1, 1),
+    'D': (0, 1),
+    'DL': (-1, 1),
     'L': (-1, 0),
-    'UL': (-1, 1),
+    'UL': (-1, -1),
 }
 
 
@@ -61,15 +61,18 @@ def initial_scale(axis_size, current_pos):
         return axis_size / 1.7
 
 
-def limit_points(x, y):
+def validate_points(x, y):
     '''
-    Ensure points are in boundaries
+    Ensure points are acceptable by codingame
     '''
-    x = max(x, W+1)
-    y = max(y, H+1)
+    # Could be float because of scaling
+    x, y = map(int, [x, y])
 
-    x = min(x, 0)
-    y = min(y, 0)
+    x = min(x, W-1)
+    y = min(y, H-1)
+
+    x = max(x, 0)
+    y = max(y, 0)
 
     return x, y
 
@@ -78,15 +81,25 @@ scale_x = initial_scale(W, X0)
 scale_y = initial_scale(H, Y0)
 
 previous_pos = None
+previous_bomb = None
 # The factor has to change according to previous pos in case of opposite
 
 while 1:
     # the direction of the bombs from batman's current location (U, UR, R, DR,
     # D, DL, L or UL)
-    BOMB_DIR = input()
-    X1, Y1 = direction[BOMB_DIR]
+    bomb_direction = input()
+    x_direction, y_direction = directions[bomb_direction]
 
-    X0, Y0 = int(X0), int(Y0)
+    print(x_direction, y_direction, bomb_direction, X0, Y0, file=sys.stderr)
+    print(scale_y, scale_x, file=sys.stderr)
+    X0 = X0 + (scale_x * x_direction)
+    Y0 = Y0 + (scale_y * y_direction)
+    print('scale', X0, Y0, file=sys.stderr)
+    X0, Y0 = validate_points(X0, Y0)
 
-    X0, Y0 = limit_points(X0, Y0)
+    print('scale 2', X0, Y0, H, file=sys.stderr)
+    # Save previous values
+    previous_pos = X0, Y0
+    previous_bomb = bomb_direction
+
     print(X0, Y0)  # the location of the next window Batman should jump to.

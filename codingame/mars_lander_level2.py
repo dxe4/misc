@@ -76,7 +76,7 @@ while 1:
         print("0 {}".format(P))
     else:
         force_x, force_y = calculate_force(P, R)
-        force_y = force_y + gravity
+        force_y = force_y - gravity
         print(force_x, force_y, file=sys.stderr)
 
         P, R = position_ship(HS, VS, P, X, Y, R, force_x, force_y)

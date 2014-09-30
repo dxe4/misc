@@ -1,15 +1,22 @@
 import sys
 import math
-import math
+from collections import namedtuple
 
-# Auto-generated code below aims at helping you parse
-# the standard input according to the problem statement.
+
+width = 7000
+height = 3000
+
+Area = namedtuple('Area', ['x0', 'y0', 'x1', 'y1'])
+Point = namedtuple('Point', ['x', 'y'])
+
+landing_area = None
+point_to_reach = None
+
+previous_y = None
+previous_x = None
 
 N = int(input())  # the number of points used to draw the surface of Mars.
 
-landing_area = None
-previous_y = None
-previous_x = None
 for i in range(N):
     # LAND_X: X coordinate of a surface point. (0 to 6999)
     # LAND_Y: Y coordinate of a surface point. By linking all the points
@@ -17,18 +24,28 @@ for i in range(N):
     LAND_X, LAND_Y = [int(i) for i in input().split()]
 
     if LAND_Y == previous_y:
-        landing_area = [(previous_x, previous_y), (LAND_X, LAND_Y)]
+        landing_area = Area(previous_x, previous_y, LAND_X, LAND_Y)
 
     previous_y = LAND_Y
     previous_x = LAND_X
 
+
 max_v_speed = -38
-gravity = 3.711
+gravity = -3.711
 mass = 1
+
+landing_area_size = Point(
+    abs(landing_area.x1 - landing_area.x0),
+    abs(landing_area.y1 - landing_area.y0),
+)
+landing_area_center = Point(
+    landing_area.x1 - landing_area_size.x / 2,
+    landing_area.y1 - landing_area_size.y / 2,
+)
 
 
 def in_boundaries(x, y):
-    return landing_area[0][0] < x < landing_area[1][0]
+    return landing_area.x0 < x < landing_area.x1
 
 
 def calculate_vertical_power(VS, P):
@@ -46,13 +63,13 @@ def calculate_force(accel, angle):
     if angle == 0:
         x = accel * mass
         y = (accel + gravity) * mass
-        return x, y
+        return Point(x, y)
     else:
         x = math.sin(math.radians(angle)) * accel
         y = math.cos(math.radians(angle)) * accel
         x = max(x, 0.001)
         y = max(y, 0.001)
-        return x, y
+        return Point(x, y)
 
 
 def angle_to_area(X0, Y0, X1, Y1):
@@ -62,13 +79,24 @@ def angle_to_area(X0, Y0, X1, Y1):
     '''
     dX = X0 - X1
     dY = Y0 - Y1
-    angle = math.atan2(dY / dX) * 180 / pi
+    angle = math.atan2(dY / dX) * 180 / math.pi
     return int(angle)
 
 
+def pick_point_to_reach():
+    '''
+    This picks a point above the landing area with no intelligence
+    It may need to be improved later on
+    (eg if theres obstacles, or not enough fuel)
+    '''
+    return Point(landing_area_center.x,
+                 landing_area_center.y + height / 3)
+
+
 def position_ship(HS, VS, P, X, Y, R, force_x, force_y):
-    angle = angle_to_area(X, Y, landing_area[0][0], landing_area[0][1])
+    angle = angle_to_area(X, Y, landing_area.x1, landing_area.y1)
     return 15, 2
+
 
 # game loop
 while 1:
@@ -79,7 +107,10 @@ while 1:
     # P: the thrust power (0 to 4).
     X, Y, HS, VS, F, R, P = [int(i) for i in input().split()]
 
-    distance_left = Y - landing_area[0][0]
+    if point_to_reach is None:
+        point_to_reach = pick_point_to_reach()
+
+    distance_left = Y - landing_area.x0
     # Write an action using print
     # To debug: print("Debug messages...", file=sys.stderr)
     if in_boundaries(X, Y):
@@ -87,9 +118,10 @@ while 1:
         # R P. R is the desired rotation angle. P is the desired thrust power.
         print("0 {}".format(P))
     else:
-        force_x, force_y = calculate_force(P, R)
-        force_y = force_y - gravity
-        print(force_x, force_y, file=sys.stderr)
+        force = calculate_force(P, R)
+        force.y = force.y + gravity
 
-        P, R = position_ship(HS, VS, P, X, Y, R, force_x, force_y)
+        print(force.x, force.y, file=sys.stderr)
+
+        P, R = position_ship(HS, VS, P, X, Y, R, force)
         print(P, R)

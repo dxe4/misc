@@ -62,9 +62,10 @@ def calculate_vertical_power(S, P):
     Used in case we are allready at the right angle
     '''
     if reached_speed_limit(S):
-        return 0
-    else:
+        # Landing speed is ~40 because of gravity
         return min(P + 1, 4)
+    else:
+        return 0
 
 
 def calculate_force(accel, angle):
@@ -104,10 +105,12 @@ def pick_point_to_reach():
 def position_ship(HS, VS, P, X, Y, R, force):
     angle = angle_to_area(X, Y, point_to_reach.x, point_to_reach.y)
 
-    if reached_speed_limit:
-        P = 0
-
-    return angle, 3
+    if reached_speed_limit(HS, VS):
+        # Power 0 won't help to recover vspeed
+        # Need to use the force to calc how to reduce it
+        return angle, 0
+    else:
+        return angle, 3
 
 
 # game loop

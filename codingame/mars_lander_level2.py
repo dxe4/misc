@@ -8,6 +8,7 @@ height = 3000
 
 Area = namedtuple('Area', ['x0', 'y0', 'x1', 'y1'])
 Point = namedtuple('Point', ['x', 'y'])
+Limit = namedtuple('Limit', ['min', 'max'])
 
 landing_area = None
 point_to_reach = None
@@ -30,7 +31,7 @@ for i in range(N):
     previous_x = LAND_X
 
 
-max_v_speed = -38
+speed_limit = Limit(-38, 38)
 gravity = -3.711
 mass = 1
 
@@ -48,15 +49,22 @@ def in_boundaries(x, y):
     return landing_area.x0 < x < landing_area.x1
 
 
-def calculate_vertical_power(VS, P):
+def reached_speed_limit(*args):
+    '''
+    args: HS, VS
+    '''
+    return bool([i for i in args
+                 if i <= speed_limit.min or i >= speed_limit.max])
+
+
+def calculate_vertical_power(S, P):
     '''
     Used in case we are allready at the right angle
     '''
-    if VS < max_v_speed:
-        P = min(P + 1, 4)
+    if reached_speed_limit(S):
+        return 0
     else:
-        P = 0
-    return P
+        return min(P + 1, 4)
 
 
 def calculate_force(accel, angle):
@@ -77,9 +85,9 @@ def angle_to_area(X0, Y0, X1, Y1):
     Returns an angle to reach the point direct
     direct is not always the case might need improvements
     '''
-    dX = X0 - X1
-    dY = Y0 - Y1
-    angle = math.atan2(dY / dX) * 180 / math.pi
+    dX = X1 - X0
+    dY = Y1 - Y0
+    angle = math.atan2(dY, dX) * 180 / math.pi
     return int(angle)
 
 
@@ -93,9 +101,13 @@ def pick_point_to_reach():
                  landing_area_center.y + height / 3)
 
 
-def position_ship(HS, VS, P, X, Y, R, force_x, force_y):
-    angle = angle_to_area(X, Y, landing_area.x1, landing_area.y1)
-    return 15, 2
+def position_ship(HS, VS, P, X, Y, R, force):
+    angle = angle_to_area(X, Y, point_to_reach.x, point_to_reach.y)
+
+    if reached_speed_limit:
+        P = 0
+
+    return angle, 3
 
 
 # game loop
@@ -119,7 +131,7 @@ while 1:
         print("0 {}".format(P))
     else:
         force = calculate_force(P, R)
-        force.y = force.y + gravity
+        force = Point(force.x, force.y + gravity)
 
         print(force.x, force.y, file=sys.stderr)
 

@@ -10,26 +10,40 @@ Area = namedtuple('Area', ['x0', 'y0', 'x1', 'y1'])
 Point = namedtuple('Point', ['x', 'y'])
 Limit = namedtuple('Limit', ['min', 'max'])
 
-landing_area = None
-point_to_reach = None
 
-previous_y = None
-previous_x = None
+def read_initial_input():
+    landing_area = None
 
-N = int(input())  # the number of points used to draw the surface of Mars.
+    previous_y = None
+    previous_x = None
 
-for i in range(N):
-    # LAND_X: X coordinate of a surface point. (0 to 6999)
-    # LAND_Y: Y coordinate of a surface point. By linking all the points
-    # together in a sequential fashion, you form the surface of Mars.
-    LAND_X, LAND_Y = [int(i) for i in input().split()]
+    N = int(input())  # the number of points used to draw the surface of Mars.
 
-    if LAND_Y == previous_y:
-        landing_area = Area(previous_x, previous_y, LAND_X, LAND_Y)
+    for i in range(N):
+        # LAND_X: X coordinate of a surface point. (0 to 6999)
+        # LAND_Y: Y coordinate of a surface point. By linking all the points
+        # together in a sequential fashion, you form the surface of Mars.
+        LAND_X, LAND_Y = [int(i) for i in input().split()]
 
-    previous_y = LAND_Y
-    previous_x = LAND_X
+        if LAND_Y == previous_y:
+            landing_area = Area(previous_x, previous_y, LAND_X, LAND_Y)
 
+        previous_y = LAND_Y
+        previous_x = LAND_X
+
+    return landing_area
+
+
+def pick_point_to_reach():
+    '''
+    This picks a point above the landing area with no intelligence
+    It may need to be improved later on
+    (eg if theres obstacles, or not enough fuel)
+    '''
+    return Point(landing_area_center.x,
+                 landing_area_center.y + height / 3)
+
+landing_area = read_initial_input()
 
 speed_limit = Limit(-38, 38)
 gravity = -3.711
@@ -44,9 +58,15 @@ landing_area_center = Point(
     landing_area.y1 - landing_area_size.y / 2,
 )
 
+point_to_reach = pick_point_to_reach()
+
 
 def in_boundaries(x, y):
     return landing_area.x0 < x < landing_area.x1
+
+
+def ready_for_landing(x, y, HS):
+    return in_boundaries(x, y) and HS == 0
 
 
 def reached_speed_limit(*args):
@@ -92,16 +112,6 @@ def angle_to_area(X0, Y0, X1, Y1):
     return int(angle)
 
 
-def pick_point_to_reach():
-    '''
-    This picks a point above the landing area with no intelligence
-    It may need to be improved later on
-    (eg if theres obstacles, or not enough fuel)
-    '''
-    return Point(landing_area_center.x,
-                 landing_area_center.y + height / 3)
-
-
 def position_ship(HS, VS, P, X, Y, R, force):
     angle = angle_to_area(X, Y, point_to_reach.x, point_to_reach.y)
 
@@ -122,13 +132,10 @@ while 1:
     # P: the thrust power (0 to 4).
     X, Y, HS, VS, F, R, P = [int(i) for i in input().split()]
 
-    if point_to_reach is None:
-        point_to_reach = pick_point_to_reach()
-
     distance_left = Y - landing_area.x0
     # Write an action using print
     # To debug: print("Debug messages...", file=sys.stderr)
-    if in_boundaries(X, Y):
+    if ready_for_landing(X, Y, HS):
         P = calculate_vertical_power(VS, P)
         # R P. R is the desired rotation angle. P is the desired thrust power.
         print("0 {}".format(P))

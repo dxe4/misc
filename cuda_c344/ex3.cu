@@ -134,14 +134,15 @@ void gaussian_blur(const unsigned char* const inputChannel,
   // GPU memory:
 
 
-    int count = 0;
+    int filter_pos = 0;
+    int filter_center = filterWidth / 2;
     int potential_pos_x;  // Make sure we are within img boundaries
     int potential_pos_y;  // Make sure we are within img boundaries
     int pos_to_change;
     float value = 0;
 
-    for(int j=filterWidth; j>-filterWidth; j--) {
-        for(int i=-filterWidth; i<filterWidth; i++) {
+    for (int i = -filter_center; i <= filter_center; ++i) {
+        for (int j = -filter_center; j <= filter_center; ++j) {
             potential_pos_x = thread_2D_pos.x + i;
             potential_pos_y = thread_2D_pos.y + j;
 
@@ -150,9 +151,9 @@ void gaussian_blur(const unsigned char* const inputChannel,
                 continue;
             } else {
                 pos_to_change = potential_pos_y * numCols + potential_pos_x;
-                value += inputChannel[pos_to_change] * filter[count];               
+                filter_pos = (i + filter_center) * filterWidth + j + filter_center;
+                value += inputChannel[pos_to_change] * filter[filter_pos];  
             }
-            count++;
         }
     }
    __syncthreads();

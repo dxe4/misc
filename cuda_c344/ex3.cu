@@ -149,8 +149,8 @@ void gaussian_blur(const unsigned char* const inputChannel,
     // [-1,1,0,1,1,1,-1,0,0,0,1,0,-1,-1,0,-1,1,-1] (not in this oreder)
     // int size = (pow((filterWidth * filterWidth) + 1, 2) - 1) * 2;
 
-    int i = -filterWidth*filterWidth;
-    int j = -filterWidth*filterWidth;
+    // int i = -filterWidth*filterWidth;
+    // int j = -filterWidth*filterWidth;
 
     int count = 0;
     int sum ;
@@ -169,7 +169,7 @@ void gaussian_blur(const unsigned char* const inputChannel,
                 continue;
             } else {
                 pos_to_change = potential_pos_y * numCols + potential_pos_x;
-                outputChannel[pos_to_change] = inputChannel[pos_to_change] * 0.2; // filter[count];
+                outputChannel[pos_to_change] = inputChannel[pos_to_change] * filter[count];
                 __syncthreads();
             }
             count++;
@@ -327,14 +327,14 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
   Might be useful but might be mentioned in later talks
   http://stackoverflow.com/questions/5689028/how-to-get-card-specs-programatically-in-cuda
   **/
-  const dim3 blockSize(32, 32, 1);
-  const dim3 gridSize(numCols / blockSize.x + 1, numRows / blockSize.y + 1);
+  dim3 blockSize(32, 32, 1);
+  dim3 gridSize(numCols / blockSize.x + 1, numRows / blockSize.y + 1);
 
   separateChannels<<<gridSize, blockSize>>>(d_inputImageRGBA,
                                             numRows, numCols,
-                                            d_redBlurred,
-                                            d_greenBlurred,
-                                            d_blueBlurred);
+                                            d_red,
+                                            d_green,
+                                            d_blue);
 
   // Call cudaDeviceSynchronize(), then call checkCudaErrors() immediately after
   // launching your kernel to make sure that you didn't make any mistakes.
@@ -342,12 +342,11 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
   checkCudaErrors(cudaGetLastError());
 
   //TODO: Call your convolution kernel here 3 times, once for each color channel.
-  // TODO not sure if the output should be d_* probably a bug
-  gaussian_blur<<<gridSize,blockSize>>>(h_redBlurred, d_redBlurred, numRows,
+  gaussian_blur<<<gridSize,blockSize>>>(d_red, d_redBlurred, numRows,
                                        numCols, d_filter, filterWidth);
-  gaussian_blur<<<gridSize,blockSize>>>(h_greenBlurred, d_greenBlurred, numRows,
+  gaussian_blur<<<gridSize,blockSize>>>(d_green, d_greenBlurred, numRows,
                                        numCols, d_filter, filterWidth);
-  gaussian_blur<<<gridSize,blockSize>>>(h_blueBlurred, d_blueBlurred, numRows,
+  gaussian_blur<<<gridSize,blockSize>>>(d_blue, d_blueBlurred, numRows,
                                        numCols, d_filter, filterWidth);
   // Again, call cudaDeviceSynchronize(), then call checkCudaErrors() immediately after
   // launching your kernel to make sure that you didn't make any mistakes.

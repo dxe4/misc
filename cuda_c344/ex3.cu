@@ -132,49 +132,32 @@ void gaussian_blur(const unsigned char* const inputChannel,
   // NOTE: Be careful not to try to access memory that is outside the bounds of
   // the image. You'll want code that performs the following check before accessing
   // GPU memory:
-  //
-  // if ( absolute_image_position_x >= numCols ||
-  //      absolute_image_position_y >= numRows )
-  // {
-  //     return;
-  // }
 
-
-  
-    // size -> 8 squares for 1, 24 squres for 2 etc.
-    // ((2+2)+1)**2)-1 = ((4+1)**2)-1
-    // mul by 2 to keep the array flat (must be faster)
-    // in python this would be set(product([..], [..])) - (x,y)
-    // for a case of 1x1 blur arr should have the values:
-    // [-1,1,0,1,1,1,-1,0,0,0,1,0,-1,-1,0,-1,1,-1] (not in this oreder)
-    // int size = (pow((filterWidth * filterWidth) + 1, 2) - 1) * 2;
-
-    // int i = -filterWidth*filterWidth;
-    // int j = -filterWidth*filterWidth;
 
     int count = 0;
-    int sum ;
     int potential_pos_x;  // Make sure we are within img boundaries
     int potential_pos_y;  // Make sure we are within img boundaries
     int pos_to_change;
+    float value = 0;
 
     for(int j=filterWidth; j>-filterWidth; j--) {
         for(int i=-filterWidth; i<filterWidth; i++) {
-            sum = i + j;
             potential_pos_x = thread_2D_pos.x + i;
             potential_pos_y = thread_2D_pos.y + j;
 
-            if( sum == 0 || potential_pos_x > numCols || potential_pos_x < 0
+            if(potential_pos_x > numCols || potential_pos_x < 0
                || potential_pos_y > numRows || potential_pos_y < 0 ) {
                 continue;
             } else {
                 pos_to_change = potential_pos_y * numCols + potential_pos_x;
-                outputChannel[pos_to_change] = inputChannel[pos_to_change] * filter[count];
-                __syncthreads();
+                value += inputChannel[pos_to_change] * filter[count];               
             }
             count++;
         }
     }
+   __syncthreads();
+    outputChannel[thread_1D_pos] = value;
+
 
   
    // __syncthreads();
@@ -363,6 +346,10 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
                                              d_outputImageRGBA,
                                              numRows,
                                              numCols);
+  for(int i=0; i<numCols * numRows; i++){
+    printf("%f\n", d_red[i]);
+
+  }
 
   cudaDeviceSynchronize();
   checkCudaErrors(cudaGetLastError());

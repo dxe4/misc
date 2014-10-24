@@ -135,25 +135,25 @@ void gaussian_blur(const unsigned char* const inputChannel,
 
 
     int filter_pos = 0;
-    int filter_center = filterWidth / 2;
+    int filter_center = (int)floor(sqrt((double)filterWidth) / 2);
+    int filter_axis_size = (int)sqrt((double)filterWidth);
     int potential_pos_x;  // Make sure we are within img boundaries
     int potential_pos_y;  // Make sure we are within img boundaries
     int pos_to_change;
     float value = 0;
+    int count = 0;
 
-    for (int i = -filter_center; i <= filter_center; ++i) {
-        for (int j = -filter_center; j <= filter_center; ++j) {
+    for (int i = -filter_center; i <= filter_center; i++) {
+        for (int j = -filter_center; j <= filter_center; j++) {
             potential_pos_x = thread_2D_pos.x + i;
             potential_pos_y = thread_2D_pos.y + j;
+            potential_pos_x = MAX(MIN(potential_pos_x, numCols-1), 0);
+            potential_pos_y = MAX(MIN(potential_pos_y, numRows-1), 0);
 
-            if(potential_pos_x > numCols || potential_pos_x < 0
-               || potential_pos_y > numRows || potential_pos_y < 0 ) {
-                continue;
-            } else {
-                pos_to_change = potential_pos_y * numCols + potential_pos_x;
-                filter_pos = (i + filter_center) * filterWidth + j + filter_center;
-                value += inputChannel[pos_to_change] * filter[filter_pos];  
-            }
+            pos_to_change = potential_pos_y * numCols + potential_pos_x;
+            filter_pos = ((j + filter_center) * filter_axis_size) + (i + filter_center);
+            value += inputChannel[pos_to_change] * filter[filter_pos]; 
+            count++;
         }
     }
    __syncthreads();
@@ -282,12 +282,12 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
 
   float h_filter[filterWidth*filterWidth];
   const float sigma = 2.;
-  int center = (filterWidth - 1) / 2;
+  int center = filterWidth / 2;
   float sum = 0;
   int position;
 
-  for (int row = -center; row <= center; row++) {
-    for (int col = -center; col <= center; col++) {
+  for (int row = -center; row <= center; ++row) {
+    for (int col = -center; col <= center; ++col) {
       float value = expf(-(float)(col * col + row * row) / (2.0 * sigma * sigma));
       position = (row + center) * filterWidth + col + center;
       h_filter[position] = value;
@@ -300,10 +300,10 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
   for (int row = -center; row <= center; row++) {
     for (int col = -center; col <= center; col++) {
       position = (row + center) * filterWidth + col + center;
-      h_filter[position] *= normalizationFactor;
+      h_filter[position] = h_filter[position] * normalizationFactor;
     }
   }
-
+  int fws = filterWidth*filterWidth;
   allocateMemoryAndCopyToGPU(numRows, numCols, h_filter, filterWidth);
 
   /**
@@ -311,7 +311,7 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
   Might be useful but might be mentioned in later talks
   http://stackoverflow.com/questions/5689028/how-to-get-card-specs-programatically-in-cuda
   **/
-  dim3 blockSize(32, 32, 1);
+  dim3 blockSize(24, 24, 1);
   dim3 gridSize(numCols / blockSize.x + 1, numRows / blockSize.y + 1);
 
   separateChannels<<<gridSize, blockSize>>>(d_inputImageRGBA,
@@ -327,11 +327,11 @@ void your_gaussian_blur(const uchar4 * const h_inputImageRGBA, uchar4 * const d_
 
   //TODO: Call your convolution kernel here 3 times, once for each color channel.
   gaussian_blur<<<gridSize,blockSize>>>(d_red, d_redBlurred, numRows,
-                                       numCols, d_filter, filterWidth);
+                                       numCols, d_filter, fws);
   gaussian_blur<<<gridSize,blockSize>>>(d_green, d_greenBlurred, numRows,
-                                       numCols, d_filter, filterWidth);
+                                       numCols, d_filter, fws);
   gaussian_blur<<<gridSize,blockSize>>>(d_blue, d_blueBlurred, numRows,
-                                       numCols, d_filter, filterWidth);
+                                       numCols, d_filter, fws);
   // Again, call cudaDeviceSynchronize(), then call checkCudaErrors() immediately after
   // launching your kernel to make sure that you didn't make any mistakes.
   cudaDeviceSynchronize(); 

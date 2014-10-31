@@ -6,7 +6,7 @@
 
   A High Dynamic Range (HDR) image contains a wider variation of intensity
   and color than is allowed by the RGB format with 1 byte per channel that we
-  have used in the previous assignment.  
+  have used in the previous assignment.
 
   To store this extra information we use single precision floating point for
   each channel.  This allows for an extremely wide range of intensity values.
@@ -53,7 +53,7 @@
   Old TV signals used to be transmitted in this way so that black & white
   televisions could display the luminance channel while color televisions would
   display all three of the channels.
-  
+
 
   Tone-mapping
   ============
@@ -83,22 +83,130 @@
 #include "reference_calc.cpp"
 #include "utils.h"
 
-void your_histogram_and_prefixsum(const float* const d_logLuminance,
-                                  unsigned int* const d_cdf,
+#include <stdio.h>
+
+#define NUM_BANKS 32
+#define LOG_NUM_BANKS 5
+#define CONFLICT_FREE_OFFSET(n) \
+    ((n) >> NUM_BANKS + (n) >> (2 * LOG_NUM_BANKS))
+
+#define MIN(a,b) (((a)<(b))?(a):(b))
+#define MAX(a,b) (((a)>(b))?(a):(b))
+
+
+/*
+For Bank Conflicts:
+https://www.youtube.com/watch?v=CZgM3DEBplE
+http://http.developer.nvidia.com/GPUGems3/gpugems3_ch39.html
+
+Reduce:
+for d = 0 to log2 n – 1 do
+     for all k = 0 to n – 1 by 2 d+1 in parallel do
+          x[k +  2 d+1 – 1] = x[k +  2 d  – 1] + x[k +  2 d +1 – 1]
+
+Down sweep:
+x[n – 1] = 0
+for d = log2 n – 1 down to 0 do
+      for all k = 0 to n – 1 by 2 d +1 in parallel do
+           t = x[k +  2 d  – 1]
+           x[k +  2 d  – 1] = x[k +  2 d +1 – 1]
+           x[k +  2 d +1 – 1] = t +  x[k +  2 d +1 – 1]
+*/
+
+__global__ void find_minmax(const float *const input, float *d_output, int n)
+{
+    extern __shared__ float temp[];  // allocated on invocation
+    int t_id = threadIdx.x;
+    int offset = 1;
+
+    int ai = t_id;
+    int bi = t_id + (n / 2);
+    int bankOffsetA = CONFLICT_FREE_OFFSET(ai);
+    int bankOffsetB = CONFLICT_FREE_OFFSET(bi);
+
+    // load input into shared memory
+    temp[ai + bankOffsetA] = input[ai];
+    temp[bi + bankOffsetB] = input[bi];
+
+    // build sum in place up the tree
+    for (int d = n >> 1; d > 0; d >>= 1)
+    {
+        __syncthreads();
+        if (t_id < d)
+        {
+            int ai = offset * (2 * t_id + 1) - 1;
+            int bi = offset * (2 * t_id + 2) - 1;
+            ai += CONFLICT_FREE_OFFSET(ai);
+            bi += CONFLICT_FREE_OFFSET(bi);
+
+            temp[bi] = MAX(temp[ai], temp[bi]);
+        }
+        offset *= 2;
+
+        if (t_id == 0)
+        {
+            temp[n - 1 + CONFLICT_FREE_OFFSET(n - 1)] = 0;
+        } // clear the last element
+
+
+        // traverse down tree & build scan
+        for (int d = 1; d < n; d *= 2)
+        {
+            offset >>= 1;
+            __syncthreads();
+            if (t_id < d)
+            {
+                int ai = offset * (2 * t_id + 1) - 1;
+                int bi = offset * (2 * t_id + 2) - 1;
+                ai += CONFLICT_FREE_OFFSET(ai);
+                bi += CONFLICT_FREE_OFFSET(bi);
+
+                float t = temp[ai];
+                temp[ai] = temp[bi];
+                temp[bi] = MAX(t, temp[bi]);
+            }
+        }
+        __syncthreads();
+
+        temp[n + ai] = temp[ai + bankOffsetA];
+        temp[n + bi] = temp[bi + bankOffsetB];
+    }
+
+    __syncthreads();
+    d_output = &temp[n * 2];
+}
+
+
+void your_histogram_and_prefixsum(const float *const d_logLuminance,
+                                  unsigned int *const d_cdf,
                                   float &min_logLum,
                                   float &max_logLum,
                                   const size_t numRows,
                                   const size_t numCols,
                                   const size_t numBins)
 {
-  //TODO
-  /*Here are the steps you need to implement
-    1) find the minimum and maximum value in the input logLuminance channel
-       store in min_logLum and max_logLum
-    2) subtract them to find the range
-    3) generate a histogram of all the values in the logLuminance channel using
-       the formula: bin = (lum[i] - lumMin) / lumRange * numBins
-    4) Perform an exclusive scan (prefix sum) on the histogram to get
-       the cumulative distribution of luminance values (this should go in the
-       incoming d_cdf pointer which already has been allocated for you)       */
+    printf("%f\n", d_logLuminance[0]);
+    dim3 blockSize(24, 24, 1);
+    dim3 gridSize(numCols / blockSize.x + 1, numRows / blockSize.y + 1);
+
+
+    float *d_output;
+    int *d_size;
+    int _h_size = numCols * numRows;
+    int *h_size = &_h_size;
+    checkCudaErrors(cudaMalloc((void **) &d_output, sizeof(float)));
+    checkCudaErrors(cudaMalloc((void **) &d_size, sizeof(int)));
+    checkCudaErrors(cudaMemcpy(d_size, h_size, sizeof(int), cudaMemcpyHostToDevice));
+
+    find_minmax<<<gridSize, blockSize, numCols * numRows * 2 * sizeof(float)>>>(d_logLuminance, d_output, *d_size);
+    //TODO
+    /*Here are the steps you need to implement
+      1) find the minimum and maximum value in the input logLuminance channel
+         store in min_logLum and max_logLum
+      2) subtract them to find the range
+      3) generate a histogram of all the values in the logLuminance channel using
+         the formula: bin = (lum[i] - lumMin) / lumRange * numBins
+      4) Perform an exclusive scan (prefix sum) on the histogram to get
+         the cumulative distribution of luminance values (this should go in the
+         incoming d_cdf pointer which already has been allocated for you)       */
 }

@@ -174,6 +174,7 @@ __global__ void find_minmax(const float *const input, float *d_output, int n)
 
     __syncthreads();
     d_output = &temp[n * 2];
+    printf("%s\n", d_output);
 }
 
 
@@ -185,9 +186,8 @@ void your_histogram_and_prefixsum(const float *const d_logLuminance,
                                   const size_t numCols,
                                   const size_t numBins)
 {
-    printf("%f\n", d_logLuminance[0]);
-    dim3 blockSize(24, 24, 1);
-    dim3 gridSize(numCols / blockSize.x + 1, numRows / blockSize.y + 1);
+    dim3 blockSize(10, 10, 1);
+    dim3 gridSize(500, 500);
 
 
     float *d_output;
@@ -198,7 +198,11 @@ void your_histogram_and_prefixsum(const float *const d_logLuminance,
     checkCudaErrors(cudaMalloc((void **) &d_size, sizeof(int)));
     checkCudaErrors(cudaMemcpy(d_size, h_size, sizeof(int), cudaMemcpyHostToDevice));
 
-    find_minmax<<<gridSize, blockSize, numCols * numRows * 2 * sizeof(float)>>>(d_logLuminance, d_output, *d_size);
+    find_minmax<<<gridSize, blockSize, gridSize.x  * sizeof(float)>>>(d_logLuminance, d_output, *d_size);
+    cudaDeviceSynchronize();
+    checkCudaErrors(cudaGetLastError());
+    //checkCudaErrors(cudaMemcpy(&min_logLum, d_output,sizeof(float),cudaMemcpyDeviceToHost));
+    printf("%s\n", min_logLum);
     //TODO
     /*Here are the steps you need to implement
       1) find the minimum and maximum value in the input logLuminance channel
@@ -210,3 +214,4 @@ void your_histogram_and_prefixsum(const float *const d_logLuminance,
          the cumulative distribution of luminance values (this should go in the
          incoming d_cdf pointer which already has been allocated for you)       */
 }
+  

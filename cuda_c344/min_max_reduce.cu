@@ -21,14 +21,14 @@ __device__ float MAX(float &x, float &y)
 }
 
 
+__device__ float d_output;
+
 template<reduce_cb cb>
-__global__ void reduce(float *input, float *output, int *n)
+__global__ void reduce(float *input, int *n)
 {
     /**
     TODO
     a) avoid bank conflicts (rtfd)
-    b) In the case of min max we dont have to copy the whole array
-       back to host memory just the last number
     c) the shared memory size could be reduced
     **/
     extern __shared__ float temp[];// allocated on invocation
@@ -85,9 +85,15 @@ __global__ void reduce(float *input, float *output, int *n)
             }
         }
     }
-    __syncthreads();
-    output[2 * thid] = temp[2 * thid]; // write results to device memory
-    output[2 * thid + 1] = temp[2 * thid + 1];
+    if(2 * thid + 1 == *n-1) {
+        /**
+        Note, normally we would need this
+            -    output[2 * thid] = temp[2 * thid]; // write results to device memory
+            -    output[2 * thid + 1] = temp[2 * thid + 1];
+        But because we only need the last value we pick it from the appropriate thread
+        **/
+        d_output = temp[*n-1];
+    }
 }
 
 
@@ -105,16 +111,17 @@ int main(int argc, char **argv)
     {
         h_in[i] = (rand() % 2000 + rand() % 2000);
     }
-    float h_out[ARRAY_SIZE];
+    // float h_out[ARRAY_SIZE];
+    float h_output = 0;
 
     float *d_in;
-    float *d_out;
+    // float *d_out;
     int _h_in = ARRAY_SIZE;
     int *h_n = &_h_in;
     int *d_n;
 
     checkCudaErrors(cudaMalloc((void **) &d_in, ARRAY_BYTES));
-    checkCudaErrors(cudaMalloc((void **) &d_out, ARRAY_BYTES));
+    // checkCudaErrors(cudaMalloc((void **) &d_out, ARRAY_BYTES));
     checkCudaErrors(cudaMalloc((void **) &d_n, sizeof(int)));
 
     checkCudaErrors(cudaMemcpy(d_in, h_in, ARRAY_BYTES, cudaMemcpyHostToDevice));
@@ -123,7 +130,7 @@ int main(int argc, char **argv)
     dim3 blockSize(24, 24, 1);
     dim3 threadSize(blockSize.x / ARRAY_SIZE, blockSize.y / ARRAY_SIZE);
 
-    reduce<MAX> <<< blockSize, ARRAY_SIZE, ARRAY_SIZE *sizeof(float)>>>(d_in, d_out, d_n);
+    reduce<MAX> <<< blockSize, ARRAY_SIZE, ARRAY_SIZE *sizeof(float)>>>(d_in, d_n);
     cudaThreadSynchronize();
 
     // check for error
@@ -134,7 +141,11 @@ int main(int argc, char **argv)
         exit(-1);
     }
 
-    checkCudaErrors(cudaMemcpy(h_out, d_out, ARRAY_BYTES, cudaMemcpyDeviceToHost));
+    // checkCudaErrors(cudaMemcpy(h_out, d_out, ARRAY_BYTES, cudaMemcpyDeviceToHost));
+
+    cudaMemcpyFromSymbol(&h_output, "d_output", sizeof(float), 0, cudaMemcpyDeviceToHost);
+
+    printf("%f\n", h_output);
 
 
     float max = -1;
@@ -146,10 +157,12 @@ int main(int argc, char **argv)
         }
     }
     printf("%f max\n", max);
-    printf("%f last elm\n", h_out[ARRAY_SIZE - 1]);
+    // printf("%f last elm\n", h_out[ARRAY_SIZE - 1]);
 
     checkCudaErrors(cudaFree(d_in));
-    checkCudaErrors(cudaFree(d_out));
+
+    checkCudaErrors(cudaFree(d_n));
+    // checkCudaErrors(cudaFree(d_out));
 
     return 0;
 }

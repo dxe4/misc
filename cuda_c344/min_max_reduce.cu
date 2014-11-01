@@ -85,6 +85,7 @@ __global__ void reduce(float *input, int *n)
             }
         }
     }
+    __syncthreads();
     if(2 * thid + 1 == *n-1) {
         /**
         Note, normally we would need this
@@ -100,7 +101,7 @@ __global__ void reduce(float *input, int *n)
 int main(int argc, char **argv)
 {
     // TODO picking grid/block and using it right needs to be fixed
-    const int ARRAY_SIZE = 1024;
+    const int ARRAY_SIZE = 1024 * 2;
     const int ARRAY_BYTES = ARRAY_SIZE * sizeof(float);
 
     time_t rand_t;
@@ -128,9 +129,7 @@ int main(int argc, char **argv)
     checkCudaErrors(cudaMemcpy(d_n, h_n, sizeof(int), cudaMemcpyHostToDevice));
 
     dim3 blockSize(24, 24, 1);
-    dim3 threadSize(blockSize.x / ARRAY_SIZE, blockSize.y / ARRAY_SIZE);
-
-    reduce<MAX> <<< blockSize, ARRAY_SIZE, ARRAY_SIZE *sizeof(float)>>>(d_in, d_n);
+    reduce<MAX> <<<blockSize, 1024, ARRAY_SIZE *sizeof(float)>>>(d_in, d_n);
     cudaThreadSynchronize();
 
     // check for error
@@ -162,7 +161,6 @@ int main(int argc, char **argv)
     checkCudaErrors(cudaFree(d_in));
 
     checkCudaErrors(cudaFree(d_n));
-    // checkCudaErrors(cudaFree(d_out));
 
     return 0;
 }

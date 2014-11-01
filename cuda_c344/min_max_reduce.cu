@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "utils.h"
+#include <time.h>
 
 // cuda-memcheck ./a.out debug segfault
 // nvcc -arch=sm_21 min_max_reduce.cu -G0 # compile
@@ -23,12 +24,22 @@ __device__ float MAX(float &x, float &y)
 template<reduce_cb cb>
 __global__ void reduce(float *input, float *output, int *n)
 {
+    /**
+    TODO
+    a) avoid bank conflicts (rtfd)
+    b) In the case of min max we dont have to copy the whole array
+       back to host memory just the last number
+    c) the shared memory size could be reduced
+    **/
     extern __shared__ float temp[];// allocated on invocation
 
-    int thid = threadIdx.x;
+    const int2 thread_2D_pos = make_int2( blockIdx.x * blockDim.x + threadIdx.x,
+                                          blockIdx.y * blockDim.y + threadIdx.y);
+    const int thid = thread_2D_pos.y * (*n / 2) + thread_2D_pos.x;
     int offset = 1;
 
-    if(2 * thid + 1 >= *n){
+    if (2 * thid + 1 >= *n)
+    {
         return;
     }
     temp[2 * thid] = input[2 * thid]; // load input into shared memory
@@ -44,7 +55,6 @@ __global__ void reduce(float *input, float *output, int *n)
         {
             int ai = offset * (2 * thid + 1) - 1;
             int bi = offset * (2 * thid + 2) - 1;
-            printf("%i %i\n", ai, bi);
             temp[bi] = cb(temp[ai], temp[bi]);
         }
         offset *= 2;
@@ -52,7 +62,7 @@ __global__ void reduce(float *input, float *output, int *n)
     // clear the last element
     if (thid == 0)
     {
-         temp[*n - 1] = 0.f;
+        temp[*n - 1] = 0.f;
     }
     offset = *n;
     // traverse down tree & build scan
@@ -84,16 +94,16 @@ __global__ void reduce(float *input, float *output, int *n)
 int main(int argc, char **argv)
 {
     // TODO picking grid/block and using it right needs to be fixed
-    const int ARRAY_SIZE = 128;
+    const int ARRAY_SIZE = 1024;
     const int ARRAY_BYTES = ARRAY_SIZE * sizeof(float);
 
-    time_t t;
-    srand((unsigned) time(&t));
+    time_t rand_t;
+    srand((unsigned) time(&rand_t));
 
     float h_in[ARRAY_SIZE];
     for (int i = 0; i < ARRAY_SIZE; i++)
     {
-        h_in[i] = rand() % 2000;
+        h_in[i] = (rand() % 2000 + rand() % 2000);
     }
     float h_out[ARRAY_SIZE];
 
@@ -110,9 +120,10 @@ int main(int argc, char **argv)
     checkCudaErrors(cudaMemcpy(d_in, h_in, ARRAY_BYTES, cudaMemcpyHostToDevice));
     checkCudaErrors(cudaMemcpy(d_n, h_n, sizeof(int), cudaMemcpyHostToDevice));
 
-    reduce<MAX> <<< 1, ARRAY_SIZE, ARRAY_SIZE *sizeof(float)>>>(d_in, d_out, d_n);
+    dim3 blockSize(24, 24, 1);
+    dim3 threadSize(blockSize.x / ARRAY_SIZE, blockSize.y / ARRAY_SIZE);
 
-
+    reduce<MAX> <<< blockSize, ARRAY_SIZE, ARRAY_SIZE *sizeof(float)>>>(d_in, d_out, d_n);
     cudaThreadSynchronize();
 
     // check for error
@@ -125,21 +136,17 @@ int main(int argc, char **argv)
 
     checkCudaErrors(cudaMemcpy(h_out, d_out, ARRAY_BYTES, cudaMemcpyDeviceToHost));
 
+
     float max = -1;
     for (int i = 0; i < ARRAY_SIZE; i++)
     {
-        printf("%f, ", h_in[i]);
-        if(h_in[i] > max){
+        if (h_in[i] > max)
+        {
             max = h_in[i];
-        }   
+        }
     }
-    printf("\n");
-    printf("\n");
     printf("%f max\n", max);
-    for (int i = 0; i < ARRAY_SIZE; i++)
-    {
-        printf("%f, ", h_out[i]);
-    }
+    printf("%f last elm\n", h_out[ARRAY_SIZE - 1]);
 
     checkCudaErrors(cudaFree(d_in));
     checkCudaErrors(cudaFree(d_out));

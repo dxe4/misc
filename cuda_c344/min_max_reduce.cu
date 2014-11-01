@@ -3,6 +3,10 @@
 #include <stdlib.h>
 #include "utils.h"
 
+// cuda-memcheck ./a.out debug segfault
+// nvcc -arch=sm_21 min_max_reduce.cu -G0 # compile
+
+
 typedef float (*reduce_cb) (float &, float &);
 
 __device__ float MIN(float &x, float &y)
@@ -24,6 +28,9 @@ __global__ void reduce(float *input, float *output, int *n)
     int thid = threadIdx.x;
     int offset = 1;
 
+    if(2 * thid + 1 >= *n){
+        return;
+    }
     temp[2 * thid] = input[2 * thid]; // load input into shared memory
     temp[2 * thid + 1] = input[2 * thid + 1];
 
@@ -42,7 +49,6 @@ __global__ void reduce(float *input, float *output, int *n)
         }
         offset *= 2;
     }
-    __syncthreads();
     // clear the last element
     if (thid == 0)
     {
@@ -78,7 +84,7 @@ __global__ void reduce(float *input, float *output, int *n)
 int main(int argc, char **argv)
 {
     // TODO picking grid/block and using it right needs to be fixed
-    const int ARRAY_SIZE = 16;
+    const int ARRAY_SIZE = 128;
     const int ARRAY_BYTES = ARRAY_SIZE * sizeof(float);
 
     time_t t;

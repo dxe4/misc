@@ -37,17 +37,20 @@ __global__ void reduce(float *input, float *output, int *n)
         {
             int ai = offset * (2 * thid + 1) - 1;
             int bi = offset * (2 * thid + 2) - 1;
-            temp[bi] = cb(input[ai], input[bi]);
+            printf("%i %i\n", ai, bi);
+            temp[bi] = cb(temp[ai], temp[bi]);
         }
         offset *= 2;
     }
+    __syncthreads();
     // clear the last element
     if (thid == 0)
     {
-        temp[*n - 1] = 0.f;
+         temp[*n - 1] = 0.f;
     }
-    __syncthreads();
+    offset = *n;
     // traverse down tree & build scan
+
     for (int d = 1; d < *n; d *= 2)
     {
         offset >>= 1;
@@ -67,7 +70,6 @@ __global__ void reduce(float *input, float *output, int *n)
         }
     }
     __syncthreads();
-
     output[2 * thid] = temp[2 * thid]; // write results to device memory
     output[2 * thid + 1] = temp[2 * thid + 1];
 }
@@ -75,6 +77,7 @@ __global__ void reduce(float *input, float *output, int *n)
 
 int main(int argc, char **argv)
 {
+    // TODO picking grid/block and using it right needs to be fixed
     const int ARRAY_SIZE = 16;
     const int ARRAY_BYTES = ARRAY_SIZE * sizeof(float);
 
@@ -101,7 +104,7 @@ int main(int argc, char **argv)
     checkCudaErrors(cudaMemcpy(d_in, h_in, ARRAY_BYTES, cudaMemcpyHostToDevice));
     checkCudaErrors(cudaMemcpy(d_n, h_n, sizeof(int), cudaMemcpyHostToDevice));
 
-    reduce<MAX> <<< 1, 16, ARRAY_SIZE *sizeof(float)>>>(d_in, d_out, d_n);
+    reduce<MAX> <<< 1, ARRAY_SIZE, ARRAY_SIZE *sizeof(float)>>>(d_in, d_out, d_n);
 
 
     cudaThreadSynchronize();
@@ -116,12 +119,17 @@ int main(int argc, char **argv)
 
     checkCudaErrors(cudaMemcpy(h_out, d_out, ARRAY_BYTES, cudaMemcpyDeviceToHost));
 
+    float max = -1;
     for (int i = 0; i < ARRAY_SIZE; i++)
     {
         printf("%f, ", h_in[i]);
+        if(h_in[i] > max){
+            max = h_in[i];
+        }   
     }
     printf("\n");
     printf("\n");
+    printf("%f max\n", max);
     for (int i = 0; i < ARRAY_SIZE; i++)
     {
         printf("%f, ", h_out[i]);

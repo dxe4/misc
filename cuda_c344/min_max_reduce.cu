@@ -23,7 +23,8 @@ __device__ float MAX(float &x, float &y)
 }
 
 template<reduce_cb cb>
-__global__ void reduce(float *input, float *output, int *n, int *nRows, int *nCols, int *blocksY)
+__global__ void reduce(
+    float *input, float *output, int *n, int *nRows, int *nCols, int *blocksY)
 {
     /**
     __shared__ temp has a max size of 49152 b
@@ -37,9 +38,10 @@ __global__ void reduce(float *input, float *output, int *n, int *nRows, int *nCo
 
     const int2 thread_2D_pos = make_int2( blockIdx.x * blockDim.x + threadIdx.x,
                                           blockIdx.y * blockDim.y + threadIdx.y);
+
     const int thid = thread_2D_pos.y * ( *nCols ) + thread_2D_pos.x;
-    int offset = 1;
     const int b_thid = threadIdx.x;
+    int offset = 1;
 
     if (2 * thid + 1 >= *n)
     {
@@ -81,9 +83,9 @@ __global__ void reduce(float *input, float *output, int *n, int *nRows, int *nCo
 
             if (ai >= 0 && bi >= 0)
             {
-                float t = temp[ai];
+                float swap_temp = temp[ai];
                 temp[ai] = temp[bi];
-                temp[bi] = cb(t, temp[bi]);
+                temp[bi] = cb(swap_temp, temp[bi]);
             }
         }
     }
@@ -150,15 +152,21 @@ int main(int argc, char **argv)
     checkCudaErrors(cudaMalloc((void **) &nRows, sizeof(int)));
     checkCudaErrors(cudaMalloc((void **) &blocksY, sizeof(int)));
 
-    checkCudaErrors(cudaMemcpy(d_in, h_in, ARRAY_BYTES, cudaMemcpyHostToDevice));
-    checkCudaErrors(cudaMemcpy(d_n, h_n, sizeof(int), cudaMemcpyHostToDevice));
-    checkCudaErrors(cudaMemcpy(nRows, &numRows, sizeof(int), cudaMemcpyHostToDevice));
-    checkCudaErrors(cudaMemcpy(nCols, &numCols, sizeof(int), cudaMemcpyHostToDevice));
-    checkCudaErrors(cudaMemcpy(blocksY, &blocks, sizeof(int), cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpy(
+        d_in, h_in, ARRAY_BYTES, cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpy(
+        d_n, h_n, sizeof(int), cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpy(
+        nRows, &numRows, sizeof(int), cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpy(
+        nCols, &numCols, sizeof(int), cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpy(
+        blocksY, &blocks, sizeof(int), cudaMemcpyHostToDevice));
 
     dim3 blockSize(blocks, blocks, 1);
     // good luck here +++
-    reduce<MAX> <<< blockSize, 1024, 1024 * sizeof(float)>>>(d_in, d_out, d_n, nRows, nCols, blocksY);
+    reduce<MAX> <<< blockSize, 1024, 1024 * sizeof(float)>>>(
+        d_in, d_out, d_n, nRows, nCols, blocksY);
     cudaThreadSynchronize();
 
     // check for error
@@ -169,7 +177,8 @@ int main(int argc, char **argv)
         exit(-1);
     }
 
-    checkCudaErrors(cudaMemcpy(h_out, d_out, ARRAY_BYTES + sizeof(float), cudaMemcpyDeviceToHost));
+    checkCudaErrors(cudaMemcpy(
+        h_out, d_out, ARRAY_BYTES + sizeof(float), cudaMemcpyDeviceToHost));
 
     // cudaMemcpyFromSymbol(&h_output, "d_output", sizeof(float), 0, cudaMemcpyDeviceToHost);
 

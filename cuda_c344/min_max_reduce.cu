@@ -24,7 +24,8 @@ __device__ float MAX(float &x, float &y)
 
 template<reduce_cb cb>
 __global__ void reduce(
-    float *input, float *output, int *n, int *nRows, int *nCols, int *blocksY)
+    float *input, float *output, int *n, int *n_rows, int *n_cols,
+    int *blocks_y, int *d_output_size)
 {
     /**
     __shared__ temp has a max size of 49152 b
@@ -33,14 +34,15 @@ __global__ void reduce(
     then we need to launch another kernel with input arr[x]
     Every block executes 1 blelloch
     **/
-    extern __shared__ float temp[];// allocated on invocation
+    extern __shared__ float temp[]; // allocated on invocation
     __shared__ float last_elm;
 
-    const int2 thread_2D_pos = make_int2( blockIdx.x * blockDim.x + threadIdx.x,
-                                          blockIdx.y * blockDim.y + threadIdx.y);
+    const int2 thread_2D_pos = make_int2(
+        blockIdx.x * blockDim.x + threadIdx.x,
+        blockIdx.y * blockDim.y + threadIdx.y);
 
-    const int thid = thread_2D_pos.y * ( *nCols ) + thread_2D_pos.x;
-    const int b_thid = threadIdx.x;
+    const int thid = thread_2D_pos.y * ( *n_cols ) + thread_2D_pos.x;
+    const int b_thid = threadIdx.x * blockDim.y + threadIdx.y;
     int offset = 1;
 
     if (2 * thid + 1 >= *n)
@@ -51,14 +53,15 @@ __global__ void reduce(
     temp[b_thid + 1] = input[2 * thid + 1];
 
     __syncthreads();
+
     // build sum in place up the tree
-    for (int d = 1024 >> 1; d > 0; d >>= 1)
+    for (int d = *d_output_size >> 1; d > 0; d >>= 1)
     {
         __syncthreads();
         if (b_thid < d)
         {
-            const int ai = offset * (b_thid + 1) - 1;
-            const int bi = offset * (b_thid + 2) - 1;
+            const int ai = offset * (2 * b_thid + 1) - 1;
+            const int bi = offset * (2 * b_thid + 2) - 1;
             temp[bi] = cb(temp[ai], temp[bi]);
         }
         offset *= 2;
@@ -66,35 +69,49 @@ __global__ void reduce(
     // clear the last element
     if (b_thid == 0)
     {
-        last_elm = temp[1023];
-        temp[1023] = 0.f;
+        last_elm = temp[*d_output_size - 1];
+        temp[*d_output_size - 1] = 0.f;
     }
-    //offset = *n;
+    // offset = *d_output_size;
     // traverse down tree & build scan
     __syncthreads();
-    for (int d = 1; d < 1024; d *= 2)
+
+    for (int d = 1; d < *d_output_size; d *= 2)
     {
         offset >>= 1;
         __syncthreads();
         if (b_thid < d)
         {
-            int ai = offset * (b_thid + 1) - 1;
-            int bi = offset * (b_thid + 2) - 1;
-
+            const int ai = offset * (2 * b_thid + 1) - 1;
+            const int bi = offset * (2 * b_thid + 2) - 1;
             if (ai >= 0 && bi >= 0)
             {
                 float swap_temp = temp[ai];
                 temp[ai] = temp[bi];
                 temp[bi] = cb(swap_temp, temp[bi]);
+                temp[bi] = bi;
             }
         }
     }
     __syncthreads();
+
     // write results to device memory
-    if (b_thid == 0)
+    if (*d_output_size == 1024)
     {
-        int index = (blockIdx.x * (*blocksY ) + blockIdx.y);
-        output[index] = cb(temp[1023], last_elm);
+        if (b_thid == 0)
+        {
+            int index = (blockIdx.x * gridDim.y + blockIdx.y);
+            output[index] = cb(temp[1023], last_elm);
+            printf("%i\n", index);
+        }
+    }
+    else
+    {
+        output[b_thid] = temp[b_thid];
+        if (b_thid == *d_output_size - 1)
+        {
+            output[*d_output_size - 1] = cb(temp[*d_output_size - 1], last_elm);
+        }
     }
 }
 
@@ -116,8 +133,9 @@ int shared_memory_per_block()
 
 int main(int argc, char **argv)
 {
-    int numCols = 1536;
+    int numCols = 1516;
     int numRows = 1024;
+    int h_output_size = 1024;
 
     int ARRAY_SIZE = numCols * numRows;
     int ARRAY_BYTES = ARRAY_SIZE * sizeof(float);
@@ -130,45 +148,51 @@ int main(int argc, char **argv)
 
     for (int i = 0; i < ARRAY_SIZE; i++)
     {
-        h_in[i] = rand() % 20000;
+        h_in[i] = rand() % 200000;
     }
-
 
     float *d_in;
     float *d_out;
     int _h_in = ARRAY_SIZE;
     int *h_n = &_h_in;
-    int *d_n, *nRows, *nCols, *blocksY;
+    int *d_n, *n_rows, *n_cols, *blocks_y, *d_output_size;
 
     // this is the amount of __shared__ we can use
     int sharedMemPerBlock = shared_memory_per_block();
     // Split kernels to match the cache size in a square
-    int blocks = (int)floor(sqrt(ARRAY_BYTES / sharedMemPerBlock));
+    int blocks = ARRAY_SIZE / 1024; // (int)floor(sqrt(ARRAY_SIZE / 1024)) + 1;
 
     checkCudaErrors(cudaMalloc((void **) &d_in, ARRAY_BYTES));
     checkCudaErrors(cudaMalloc((void **) &d_out, ARRAY_BYTES + sizeof(float)));
     checkCudaErrors(cudaMalloc((void **) &d_n, sizeof(int)));
-    checkCudaErrors(cudaMalloc((void **) &nCols, sizeof(int)));
-    checkCudaErrors(cudaMalloc((void **) &nRows, sizeof(int)));
-    checkCudaErrors(cudaMalloc((void **) &blocksY, sizeof(int)));
+    checkCudaErrors(cudaMalloc((void **) &n_cols, sizeof(int)));
+    checkCudaErrors(cudaMalloc((void **) &n_rows, sizeof(int)));
+    checkCudaErrors(cudaMalloc((void **) &blocks_y, sizeof(int)));
+    checkCudaErrors(cudaMalloc((void **) &d_output_size, sizeof(int)));
 
     checkCudaErrors(cudaMemcpy(
         d_in, h_in, ARRAY_BYTES, cudaMemcpyHostToDevice));
     checkCudaErrors(cudaMemcpy(
         d_n, h_n, sizeof(int), cudaMemcpyHostToDevice));
     checkCudaErrors(cudaMemcpy(
-        nRows, &numRows, sizeof(int), cudaMemcpyHostToDevice));
+        n_rows, &numRows, sizeof(int), cudaMemcpyHostToDevice));
     checkCudaErrors(cudaMemcpy(
-        nCols, &numCols, sizeof(int), cudaMemcpyHostToDevice));
+        n_cols, &numCols, sizeof(int), cudaMemcpyHostToDevice));
     checkCudaErrors(cudaMemcpy(
-        blocksY, &blocks, sizeof(int), cudaMemcpyHostToDevice));
+        blocks_y, &blocks, sizeof(int), cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpy(
+        blocks_y, &blocks, sizeof(int), cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpy(
+        d_output_size, &h_output_size, sizeof(int), cudaMemcpyHostToDevice));
 
-    dim3 blockSize(blocks, blocks, 1);
+    dim3 threadSize(32, 32, 1);
+    dim3 blockSize(numRows / 32, numCols / 32, 1);
+    int max_elms = ((numRows / 32) - 1 * (numCols / 32) - 1) + numCols / 32);
     // good luck here +++
-    reduce<MAX> <<< blockSize, 1024, 1024 * sizeof(float)>>>(
-        d_in, d_out, d_n, nRows, nCols, blocksY);
+    reduce<MAX> <<< blockSize, threadSize, 32 * 32 * sizeof(float)>>>(
+        d_in, d_out, d_n, n_rows, n_cols, blocks_y, d_output_size);
     cudaThreadSynchronize();
-
+    cudaDeviceSynchronize();
     // check for error
     cudaError_t error = cudaGetLastError();
     if (error != cudaSuccess)
@@ -178,11 +202,39 @@ int main(int argc, char **argv)
     }
 
     checkCudaErrors(cudaMemcpy(
-        h_out, d_out, ARRAY_BYTES + sizeof(float), cudaMemcpyDeviceToHost));
+        h_out, d_out, blocks * blocks * sizeof(float), cudaMemcpyDeviceToHost));
+
+    cudaFree((void **) &d_in);
+    cudaFree((void **) &d_out);
+    cudaFree((void **) &d_output_size);
+
+    h_output_size = blocks * blocks;
+    _h_in = blocks * blocks;
+
+    //free(h_out);
+    //h_out = (float *) malloc(ARRAY_BYTES + sizeof(float));
+
+    checkCudaErrors(cudaMemcpy(
+        d_output_size, &h_output_size, sizeof(int), cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpy(
+        d_in, h_out, ARRAY_BYTES, cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpy(
+        d_n, &_h_in, sizeof(int), cudaMemcpyHostToDevice));
+
+    reduce<MAX> <<<  h_output_size, 1, blocks * blocks * sizeof(float)>>>(
+        d_in, d_out, d_n, n_rows, n_cols, blocks_y, d_output_size);
+
+    cudaThreadSynchronize();
+    cudaDeviceSynchronize();
+
+    checkCudaErrors(cudaMemcpy(
+        h_out, d_out, blocks * blocks * sizeof(float), cudaMemcpyDeviceToHost));
+
 
     // cudaMemcpyFromSymbol(&h_output, "d_output", sizeof(float), 0, cudaMemcpyDeviceToHost);
 
     float max = -1;
+    float max_a = -1;
     for (int i = 0; i < ARRAY_SIZE; i++)
     {
         if (h_in[i] > max)
@@ -190,7 +242,15 @@ int main(int argc, char **argv)
             max = h_in[i];
         }
     }
-    printf("%f max\n", max);
+    for (int i = 0; i < blocks * blocks; i++)
+    {
+        if (h_out[i] > max_a)
+        {
+            max_a = h_out[i];
+        }
+        // printf("%f %i --\n", h_out[i], i);
+    }
+    printf("%f %f max\n", max, max_a);
     printf("%f last elm\n", h_out[ARRAY_SIZE]);
 
     checkCudaErrors(cudaFree(d_in));

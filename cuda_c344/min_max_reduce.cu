@@ -25,7 +25,7 @@ __device__ float MAX(float &x, float &y)
 template<reduce_cb cb>
 __global__ void reduce(
     float *input, float *output, int *n, int *n_rows, int *n_cols,
-    int *blocks_y, int *d_output_size)
+    int *d_output_size)
 {
     /**
     __shared__ temp has a max size of 49152 b
@@ -96,13 +96,13 @@ __global__ void reduce(
     __syncthreads();
 
     // write results to device memory
-    if (*d_output_size == 1024)
+    if (*d_output_size == blockDim.x * blockDim.y)
     {
         if (b_thid == 0)
         {
-            int index = (blockIdx.x * gridDim.y + blockIdx.y);
-            output[index] = cb(temp[1023], last_elm);
-            printf("%i\n", index);
+            // there may be something wrong here
+            int index = (blockIdx.x * blockDim.y + blockIdx.y);
+            output[index] = cb(temp[*d_output_size - 1], last_elm);
         }
     }
     else
@@ -135,7 +135,7 @@ int main(int argc, char **argv)
 {
     int numCols = 1516;
     int numRows = 1024;
-    int h_output_size = 1024;
+    int h_output_size = 32 * 32;
 
     int ARRAY_SIZE = numCols * numRows;
     int ARRAY_BYTES = ARRAY_SIZE * sizeof(float);
@@ -155,7 +155,7 @@ int main(int argc, char **argv)
     float *d_out;
     int _h_in = ARRAY_SIZE;
     int *h_n = &_h_in;
-    int *d_n, *n_rows, *n_cols, *blocks_y, *d_output_size;
+    int *d_n, *n_rows, *n_cols, *d_output_size;
 
     // this is the amount of __shared__ we can use
     int sharedMemPerBlock = shared_memory_per_block();
@@ -167,7 +167,6 @@ int main(int argc, char **argv)
     checkCudaErrors(cudaMalloc((void **) &d_n, sizeof(int)));
     checkCudaErrors(cudaMalloc((void **) &n_cols, sizeof(int)));
     checkCudaErrors(cudaMalloc((void **) &n_rows, sizeof(int)));
-    checkCudaErrors(cudaMalloc((void **) &blocks_y, sizeof(int)));
     checkCudaErrors(cudaMalloc((void **) &d_output_size, sizeof(int)));
 
     checkCudaErrors(cudaMemcpy(
@@ -179,18 +178,14 @@ int main(int argc, char **argv)
     checkCudaErrors(cudaMemcpy(
         n_cols, &numCols, sizeof(int), cudaMemcpyHostToDevice));
     checkCudaErrors(cudaMemcpy(
-        blocks_y, &blocks, sizeof(int), cudaMemcpyHostToDevice));
-    checkCudaErrors(cudaMemcpy(
-        blocks_y, &blocks, sizeof(int), cudaMemcpyHostToDevice));
-    checkCudaErrors(cudaMemcpy(
         d_output_size, &h_output_size, sizeof(int), cudaMemcpyHostToDevice));
 
-    dim3 threadSize(32, 32, 1);
-    dim3 blockSize(numRows / 32, numCols / 32, 1);
-    int max_elms = ((numRows / 32) - 1 * (numCols / 32) - 1) + numCols / 32);
+    dim3 blockSize(32, 32, 1);
+    dim3 gridSize(numRows / 32, numCols / 32, 1);
+    int shared_memoery_size = (numRows / 31 * numCols / 31) * sizeof(float);
     // good luck here +++
-    reduce<MAX> <<< blockSize, threadSize, 32 * 32 * sizeof(float)>>>(
-        d_in, d_out, d_n, n_rows, n_cols, blocks_y, d_output_size);
+    reduce<MAX> <<< gridSize, blockSize, shared_memoery_size>>>( 
+        d_in, d_out, d_n, n_rows, n_cols, d_output_size);
     cudaThreadSynchronize();
     cudaDeviceSynchronize();
     // check for error
@@ -202,12 +197,32 @@ int main(int argc, char **argv)
     }
 
     checkCudaErrors(cudaMemcpy(
-        h_out, d_out, blocks * blocks * sizeof(float), cudaMemcpyDeviceToHost));
+        h_out, d_out, ARRAY_BYTES, cudaMemcpyDeviceToHost));
 
     cudaFree((void **) &d_in);
     cudaFree((void **) &d_out);
     cudaFree((void **) &d_output_size);
 
+    float max_a = -1;
+    float max = -1;
+    for (int i = 0; i < ARRAY_SIZE; i++)
+    {
+        if (h_in[i] > max)
+        {
+            max = h_in[i];
+        }
+    }
+    // temp hack
+    for (int i = 0; i < 150 + (32 * 32); i++)
+    {
+        if (h_out[i] > max_a)
+        {
+            max_a = h_out[i];
+        }
+        printf("%f %i --\n", h_out[i], i);
+    }
+    // occasionally we get a 199998 instead of 199999
+    printf("%f %f\n", max_a, max);
     h_output_size = blocks * blocks;
     _h_in = blocks * blocks;
 
@@ -222,7 +237,7 @@ int main(int argc, char **argv)
         d_n, &_h_in, sizeof(int), cudaMemcpyHostToDevice));
 
     reduce<MAX> <<<  h_output_size, 1, blocks * blocks * sizeof(float)>>>(
-        d_in, d_out, d_n, n_rows, n_cols, blocks_y, d_output_size);
+        d_in, d_out, d_n, n_rows, n_cols, d_output_size);
 
     cudaThreadSynchronize();
     cudaDeviceSynchronize();
@@ -233,8 +248,7 @@ int main(int argc, char **argv)
 
     // cudaMemcpyFromSymbol(&h_output, "d_output", sizeof(float), 0, cudaMemcpyDeviceToHost);
 
-    float max = -1;
-    float max_a = -1;
+    max = -1;
     for (int i = 0; i < ARRAY_SIZE; i++)
     {
         if (h_in[i] > max)

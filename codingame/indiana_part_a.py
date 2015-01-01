@@ -13,7 +13,7 @@ types = {
     "1": ["DOWN"],
     "2": ["LEFT", "RIGHT"],
     "3": ["DOWN"],
-    "4": ["DOWN"],
+    "4": ["LEFT", "DOWN"],
     "5": ["RIGHT", "DOWN"],
     "6": ["LEFT", "RIGHT"],
     "7": ["DOWN"],
@@ -51,12 +51,26 @@ for i in range(H):
     for j, val in enumerate(LINE):
         grid[Point(j, i)] = val
 
+print(grid, file=sys.stderr)
 # the coordinate along the X axis of the exit (not useful for this first
 # mission, but must be read).
 EX = int(input())
 
+
+def find_direction(cell_type, previous_pos):
+    possible_d = types[cell_type]
+
+    if len(possible_d) == 1:
+        direction = possible_d[0]
+    else:
+        if POS in possible_d:
+            direction = opposite[POS]
+        else:
+            direction = [i for i in possible_d if i != opposite[POS]][0]
+    return direction
+
 # game loop
-count = 0
+previous_pos = None
 while 1:
     XI, YI, POS = input().split(" ")
     XI = int(XI)
@@ -70,13 +84,10 @@ while 1:
         continue
     else:
         possible_d = types[cell_type]
-        if len(possible_d) == 1:
-            direction = possible_d[0]
-            XI, YI = directions[direction](XI, YI)
-        else:
-            direction = opposite[POS]
-            XI, YI = directions[direction](XI, YI)
+        direction = find_direction(cell_type, previous_pos)
+        XI, YI = directions[direction](XI, YI)
 
     # One line containing the X Y coordinates of the room in which you believe
     # Indy will be on the next turn.
     print("{} {}".format(XI, YI))
+    previous_pos = POS

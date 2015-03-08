@@ -25,7 +25,7 @@ end
 
 
 function edges_array(node::Node)
-    if length(node.edges) == 0
+    if isempty(node.edges)
         # Because of the const EmptyEdges, probably will cause trouble
         node.edges = Edge[]
     end

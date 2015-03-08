@@ -85,7 +85,7 @@ function bfs(root, result)
     queue = AbstractNode[]
     push!(queue, root)
 
-    while length(queue) > 0
+    while !isempty(queue)
 
         node = getindex(queue, 1)
         deleteat!(queue, 1)  # Not ideal

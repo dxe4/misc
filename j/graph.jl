@@ -2,7 +2,8 @@ abstract AbstractNode
 type EmptyNodeType <: AbstractNode end
 
 type Edge
-    node::AbstractNode
+    end_node::AbstractNode
+    start_node::AbstractNode
     cost::Int64
 end
 
@@ -54,9 +55,9 @@ function add_edges(node, node_values::Array{ASCIIString},
     edges = edges_array(node)
 
     for (index, value) in enumerate(node_values)
-        node = Node(node, EmptyEdges, value)
+        new_node = Node(node, EmptyEdges, value)
         score = default_get(scores, index)
-        edge = Edge(node, score)
+        edge = Edge(new_node, node, score)
 
         push!(edges, edge)
     end
@@ -67,9 +68,9 @@ function add_nodes(node, new_nodes::Array{Node},
                    scores::Array{Int64}=nothing)
     edges = edges_array(node)
 
-    for node in new_nodes
+    for new_node in new_nodes
         score = default_get(scores, index)
-        edge = Edge(node, score)
+        edge = Edge(new_node, node, score)
         push!(edges, edge)
     end
 end
@@ -84,6 +85,44 @@ function make_graph()
     add_edges(root, node_values, scores)
 
     for i in root.edges
-        print(i.node.value, ", ")
+        print(i.end_node.value, " , ")
     end
+    return root
+end
+
+
+# TODO figure out how to override the type hash & isequal
+function id(node::Node)
+    # Assuming all values are unique, in this case they are
+    return node.value
+end
+
+
+function id(edge::Edge)
+    return id(edge.start_node) * id(edge.end_node)
+end
+
+
+function dfs(node, explored_nodes, explored_edges)
+    explored_nodes[id(node)] = node
+
+    for edge in node.edges
+        edge_hash = id(edge)
+        if !(edge_hash in explored_edges)
+            explored_edges[edge_hash] = edge
+            next_node = edge.end_node
+
+            if !(id(next_node) in explored_nodes)
+                dfs(next_node, explored_nodes, explored_edges)
+            end
+        end
+    end
+    return explored_nodes, explored_edges
+end
+
+root = make_graph()
+(nodes, edges) = dfs(root, Dict(), Dict())
+println("--")
+for node in values(nodes)
+    print(node.value, " , ")
 end
